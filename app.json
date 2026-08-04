@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Attendance",
+    "slug": "attendance-tracker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "attendance",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#08080C",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.naman.attendancetracker"
+    },
+    "android": {
+      "package": "com.naman.attendancetracker",
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "backgroundColor": "#08080C",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sharing",
+      [
+        "expo-notifications",
+        {
+          "color": "#6D5BFF",
+          "defaultChannel": "attendance-reminders"
+        }
+      ]
+    ]
+  }
+}
