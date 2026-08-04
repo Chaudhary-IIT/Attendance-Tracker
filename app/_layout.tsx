@@ -43,6 +43,8 @@ export default function RootLayout() {
             />
             <Stack.Screen name="add-course" options={{ animation: 'slide_from_bottom' }} />
             <Stack.Screen name="slots" />
+            <Stack.Screen name="backfill" options={{ animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="one-off" options={{ animation: 'slide_from_bottom' }} />
             <Stack.Screen name="slot/[id]" />
           </Stack>
         )}

@@ -258,11 +258,26 @@ export default function TodayScreen() {
         today.map((c) => <ClassCard key={c.key} instance={c} />)
       )}
 
+      <View style={styles.footerActions}>
+        <Button
+          label="+ Course"
+          tone="ghost"
+          onPress={() => router.push('/add-course')}
+          style={{ flex: 1 }}
+        />
+        <Button
+          label="+ Extra class"
+          tone="ghost"
+          onPress={() => router.push(`/one-off?date=${todayStr}`)}
+          style={{ flex: 1 }}
+        />
+      </View>
+
       <Button
-        label="Add a course"
+        label="Backfill past attendance"
         tone="ghost"
-        onPress={() => router.push('/add-course')}
-        style={{ marginTop: space.xl }}
+        onPress={() => router.push('/backfill')}
+        style={{ marginTop: space.md }}
       />
     </ScrollView>
   );
@@ -321,4 +336,5 @@ const styles = StyleSheet.create({
   },
   summaryStats: { flex: 1, gap: space.md },
   summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  footerActions: { flexDirection: 'row', gap: space.md, marginTop: space.xl },
 });

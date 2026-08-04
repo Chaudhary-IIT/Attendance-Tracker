@@ -5,6 +5,7 @@ import type {
   CourseStats,
   DayIndex,
   Meeting,
+  OneOffClass,
   Settings,
   Slot,
 } from '../types';
@@ -18,6 +19,12 @@ export function dateKey(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+/** Inverse of dateKey: "2026-08-12" → local midnight on that day. */
+export function parseDateKey(key: string): Date {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
 }
 
 export function addDays(d: Date, n: number): Date {
@@ -83,38 +90,94 @@ export type ScheduleInput = {
   slots: Slot[];
   marks: Record<string, AttendanceMark>;
   settings: Settings;
+  oneOffs: OneOffClass[];
 };
 
-/** Every class on one calendar date, chronological. Empty on holidays. */
+/** Stable meeting id for a one-off, so its attendance mark survives edits. */
+export function oneOffMeetingId(oneOff: OneOffClass): string {
+  return `oneoff-${oneOff.id}`;
+}
+
+/**
+ * Every class on one calendar date, chronological.
+ *
+ * Recurring classes are suppressed on holidays and outside the term. One-off
+ * classes are not: you created one for that exact date on purpose, so hiding it
+ * because the date is also flagged a holiday would be obstinate.
+ */
 export function classesOn(date: Date, input: ScheduleInput): ClassInstance[] {
-  const { courses, slots, marks, settings } = input;
-  if (!isTeachingDay(date, settings)) return [];
+  const { courses, slots, marks, settings, oneOffs } = input;
 
   const day = date.getDay() as DayIndex;
   const key = dateKey(date);
   const out: ClassInstance[] = [];
+  const byId = new Map(courses.map((c) => [c.id, c]));
 
-  for (const course of courses) {
-    if (course.archived) continue;
-    const slot = findSlot(course, slots);
-    for (const meeting of courseMeetings(course, slots)) {
-      if (meeting.day !== day) continue;
-      out.push({
-        key: markKey(course.id, key, meeting.id),
-        course,
-        meeting,
-        slot,
-        date: key,
-        start: combineDateTime(date, meeting.start),
-        end: combineDateTime(date, meeting.end),
-        status: marks[markKey(course.id, key, meeting.id)]?.status ?? null,
-      });
+  if (isTeachingDay(date, settings)) {
+    for (const course of courses) {
+      if (course.archived) continue;
+      const slot = findSlot(course, slots);
+      for (const meeting of courseMeetings(course, slots)) {
+        if (meeting.day !== day) continue;
+        out.push({
+          key: markKey(course.id, key, meeting.id),
+          course,
+          meeting,
+          slot,
+          date: key,
+          start: combineDateTime(date, meeting.start),
+          end: combineDateTime(date, meeting.end),
+          status: marks[markKey(course.id, key, meeting.id)]?.status ?? null,
+        });
+      }
     }
+  }
+
+  for (const oneOff of oneOffs) {
+    if (oneOff.date !== key) continue;
+    const course = byId.get(oneOff.courseId);
+    if (!course || course.archived) continue;
+
+    const meetingId = oneOffMeetingId(oneOff);
+    out.push({
+      key: markKey(course.id, key, meetingId),
+      course,
+      meeting: {
+        id: meetingId,
+        day,
+        start: oneOff.start,
+        end: oneOff.end,
+        room: oneOff.room,
+        label: 'EXTRA',
+      },
+      slot: findSlot(course, slots),
+      date: key,
+      start: combineDateTime(date, oneOff.start),
+      end: combineDateTime(date, oneOff.end),
+      status: marks[markKey(course.id, key, meetingId)]?.status ?? null,
+      oneOff,
+    });
   }
 
   return out.sort(
     (a, b) => a.start.getTime() - b.start.getTime() || a.course.code.localeCompare(b.course.code),
   );
+}
+
+/** Calendar dates from `from` to `to` inclusive that have at least one class. */
+export function teachingDatesBetween(from: Date, to: Date, input: ScheduleInput): Date[] {
+  const out: Date[] = [];
+  const cursor = new Date(from);
+  cursor.setHours(0, 0, 0, 0);
+  const last = new Date(to);
+  last.setHours(0, 0, 0, 0);
+
+  // Guard against a pathological range locking up the UI thread.
+  for (let guard = 0; cursor.getTime() <= last.getTime() && guard < 400; guard++) {
+    if (classesOn(cursor, input).length > 0) out.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return out;
 }
 
 /**

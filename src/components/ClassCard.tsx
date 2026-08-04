@@ -58,7 +58,15 @@ export function ClassCard({
         <Squish
           scaleTo={0.985}
           haptic="none"
-          onPress={() => router.push(`/course/${instance.course.id}`)}
+          // A one-off opens its own editor — that's the only place its date and
+          // time can be changed; the course page has no notion of it.
+          onPress={() =>
+            router.push(
+              instance.oneOff
+                ? `/one-off?edit=${instance.oneOff.id}`
+                : `/course/${instance.course.id}`,
+            )
+          }
           style={styles.body}
         >
           <View style={styles.headRow}>
@@ -77,8 +85,15 @@ export function ClassCard({
                   {instance.course.code}
                 </Txt>
                 {instance.meeting.label ? (
-                  <View style={[styles.tag, { backgroundColor: `${color}22` }]}>
-                    <Txt variant="tiny" color={color}>
+                  <View
+                    style={[
+                      styles.tag,
+                      {
+                        backgroundColor: instance.oneOff ? colors.warnSoft : `${color}22`,
+                      },
+                    ]}
+                  >
+                    <Txt variant="tiny" color={instance.oneOff ? colors.warn : color}>
                       {instance.meeting.label}
                     </Txt>
                   </View>
@@ -97,6 +112,12 @@ export function ClassCard({
               {room || instance.course.faculty ? (
                 <Txt variant="small" color={colors.textDim} numberOfLines={1} style={{ marginTop: 4 }}>
                   {[room, instance.course.faculty].filter(Boolean).join(' · ')}
+                </Txt>
+              ) : null}
+
+              {instance.oneOff?.note ? (
+                <Txt variant="small" color={colors.warn} numberOfLines={2} style={{ marginTop: 4 }}>
+                  {instance.oneOff.note}
                 </Txt>
               ) : null}
             </View>

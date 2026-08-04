@@ -48,6 +48,27 @@ export type Course = {
   createdAt: number;
 };
 
+/**
+ * A class that happens once, on one calendar date — a make-up class, a
+ * rescheduled lecture, an extra tutorial. Deliberately NOT a `Meeting`: those
+ * are keyed by weekday and repeat forever.
+ *
+ * The inverse case (a recurring class that does *not* happen once) is already
+ * covered by marking that occurrence `cancelled`.
+ */
+export type OneOffClass = {
+  id: string;
+  courseId: string;
+  /** "YYYY-MM-DD" local time. The single date this class occurs on. */
+  date: string;
+  start: string;
+  end: string;
+  room?: string;
+  /** Free text, e.g. "Make-up for Tuesday". Shown on the card. */
+  note?: string;
+  createdAt: number;
+};
+
 export type MarkStatus = 'present' | 'absent' | 'cancelled';
 
 /**
@@ -78,16 +99,19 @@ export type Settings = {
   hapticsEnabled: boolean;
 };
 
-/** A concrete occurrence of a meeting on a specific calendar date. */
+/** A concrete occurrence of a class on a specific calendar date. */
 export type ClassInstance = {
   key: string;
   course: Course;
+  /** For a one-off, this is synthesised from the OneOffClass. */
   meeting: Meeting;
   slot: Slot | null;
   date: string;
   start: Date;
   end: Date;
   status: MarkStatus | null;
+  /** Set when this instance came from a OneOffClass rather than a slot. */
+  oneOff?: OneOffClass;
 };
 
 export type CourseStats = {

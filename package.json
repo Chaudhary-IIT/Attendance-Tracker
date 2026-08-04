@@ -36,7 +36,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsc tests/logic.test.ts --ignoreConfig --ignoreDeprecations 6.0 --outDir .test-build --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck || true && node .test-build/tests/logic.test.js"
   },
   "private": true
 }

@@ -2,7 +2,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { DEFAULT_SLOTS } from './data/slots';
 import { dateKey, markKey } from './lib/schedule';
-import type { AttendanceMark, Course, MarkStatus, Meeting, Settings, Slot } from './types';
+import type {
+  AttendanceMark,
+  Course,
+  MarkStatus,
+  Meeting,
+  OneOffClass,
+  Settings,
+  Slot,
+} from './types';
 
 const STORAGE_KEY = 'attendance-tracker/v1';
 
@@ -27,6 +35,7 @@ type Persisted = {
   slots: Slot[];
   marks: Record<string, AttendanceMark>;
   settings: Settings;
+  oneOffs: OneOffClass[];
 };
 
 type State = Persisted & {
@@ -45,6 +54,10 @@ type State = Persisted & {
   updateMeeting: (slotId: string, meetingId: string, patch: Partial<Meeting>) => void;
   deleteMeeting: (slotId: string, meetingId: string) => void;
 
+  addOneOff: (oneOff: Omit<OneOffClass, 'id' | 'createdAt'>) => string;
+  updateOneOff: (id: string, patch: Partial<OneOffClass>) => void;
+  deleteOneOff: (id: string) => void;
+
   setMark: (courseId: string, date: string, meetingId: string, status: MarkStatus | null) => void;
   clearMarksFor: (courseId: string) => void;
 
@@ -62,8 +75,11 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 function scheduleSave(get: () => State) {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const { courses, slots, marks, settings } = get();
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ courses, slots, marks, settings })).catch(
+    const { courses, slots, marks, settings, oneOffs } = get();
+    AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ courses, slots, marks, settings, oneOffs }),
+    ).catch(
       (err) => console.warn('[store] save failed', err),
     );
   }, 200);
@@ -80,6 +96,7 @@ export const useStore = create<State>((set, get) => {
     slots: DEFAULT_SLOTS,
     marks: {},
     settings: DEFAULT_SETTINGS,
+    oneOffs: [],
     hydrated: false,
 
     hydrate: async () => {
@@ -93,6 +110,8 @@ export const useStore = create<State>((set, get) => {
             slots: parsed.slots?.length ? parsed.slots : DEFAULT_SLOTS,
             marks: parsed.marks ?? {},
             settings: { ...DEFAULT_SETTINGS, ...(parsed.settings ?? {}) },
+            // Absent in v1 payloads written before one-off classes existed.
+            oneOffs: parsed.oneOffs ?? [],
           });
         }
       } catch (err) {
@@ -174,6 +193,23 @@ export const useStore = create<State>((set, get) => {
         ),
       }),
 
+    addOneOff: (oneOff) => {
+      const id = uid('oneoff');
+      commit({ oneOffs: [...get().oneOffs, { ...oneOff, id, createdAt: Date.now() }] });
+      return id;
+    },
+
+    updateOneOff: (id, patch) =>
+      commit({ oneOffs: get().oneOffs.map((o) => (o.id === id ? { ...o, ...patch, id } : o)) }),
+
+    deleteOneOff: (id) => {
+      const oneOff = get().oneOffs.find((o) => o.id === id);
+      const marks = { ...get().marks };
+      // Drop the attendance mark too, or it would linger unreachable forever.
+      if (oneOff) delete marks[markKey(oneOff.courseId, oneOff.date, `oneoff-${oneOff.id}`)];
+      commit({ oneOffs: get().oneOffs.filter((o) => o.id !== id), marks });
+    },
+
     setMark: (courseId, date, meetingId, status) => {
       const key = markKey(courseId, date, meetingId);
       const marks = { ...get().marks };
@@ -206,7 +242,13 @@ export const useStore = create<State>((set, get) => {
 
     resetAll: async () => {
       await AsyncStorage.removeItem(STORAGE_KEY);
-      set({ courses: [], slots: DEFAULT_SLOTS, marks: {}, settings: DEFAULT_SETTINGS });
+      set({
+        courses: [],
+        slots: DEFAULT_SLOTS,
+        marks: {},
+        settings: DEFAULT_SETTINGS,
+        oneOffs: [],
+      });
     },
 
   };
@@ -218,6 +260,7 @@ export const selectScheduleInput = (s: State) => ({
   slots: s.slots,
   marks: s.marks,
   settings: s.settings,
+  oneOffs: s.oneOffs,
 });
 
 export const todayKey = () => dateKey(new Date());

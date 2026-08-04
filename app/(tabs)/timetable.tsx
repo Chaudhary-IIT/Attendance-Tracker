@@ -13,6 +13,7 @@ import {
   addDays,
   classesOn,
   courseMeetings,
+  dateKey,
   formatTime,
   toMinutes,
 } from '../../src/lib/schedule';
@@ -264,6 +265,7 @@ function DayView({
   classes: ReturnType<typeof classesOn>;
   now: Date;
 }) {
+  const router = useRouter();
   const isToday = date.toDateString() === now.toDateString();
 
   return (
@@ -313,6 +315,16 @@ function DayView({
       ) : (
         classes.map((c) => <ClassCard key={c.key} instance={c} />)
       )}
+
+      <Squish
+        scaleTo={0.97}
+        onPress={() => router.push(`/one-off?date=${dateKey(date)}`)}
+        style={styles.addExtra}
+      >
+        <Txt variant="small" color={colors.textDim}>
+          + Extra class on this day
+        </Txt>
+      </Squish>
     </ScrollView>
   );
 }
@@ -367,5 +379,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceHi,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  addExtra: {
+    paddingVertical: 13,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    marginTop: space.sm,
   },
 });

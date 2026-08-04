@@ -3,7 +3,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { DAY_NAMES, courseMeetings, formatTime, toMinutes } from './schedule';
 import { paletteAt } from '../theme';
-import type { AttendanceMark, Course, Settings, Slot } from '../types';
+import type { AttendanceMark, Course, OneOffClass, Settings, Slot } from '../types';
 import { statsFor } from './schedule';
 
 function escapeHtml(s: string): string {
@@ -169,6 +169,7 @@ export async function exportBackupJson(data: {
   slots: Slot[];
   marks: Record<string, AttendanceMark>;
   settings: Settings;
+  oneOffs: OneOffClass[];
 }): Promise<{ ok: boolean; message: string }> {
   try {
     const payload = JSON.stringify({ version: 1, exportedAt: Date.now(), ...data }, null, 2);

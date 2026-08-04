@@ -15,7 +15,7 @@ export default function SettingsScreen() {
   const router = useRouter();
 
   const input = useStore(selectScheduleInput);
-  const { courses, slots, marks, settings } = input;
+  const { courses, slots, marks, settings, oneOffs } = input;
   const updateSettings = useStore((s) => s.updateSettings);
   const toggleHoliday = useStore((s) => s.toggleHoliday);
   const resetAll = useStore((s) => s.resetAll);
@@ -116,6 +116,17 @@ export default function SettingsScreen() {
           value={`${slots.length}`}
           onPress={() => router.push('/slots')}
         />
+        <NavRow
+          label="Backfill attendance"
+          hint="Step through past teaching days and mark what you already attended."
+          onPress={() => router.push('/backfill')}
+        />
+        <NavRow
+          label="Add an extra class"
+          hint="A one-off make-up or rescheduled class on a single date."
+          value={oneOffs.length ? `${oneOffs.length}` : undefined}
+          onPress={() => router.push('/one-off')}
+        />
         <ToggleRow
           label="Today is a holiday"
           hint="Hides today's classes and leaves them out of your percentages."
@@ -166,7 +177,7 @@ export default function SettingsScreen() {
         label="Export full backup (JSON)"
         tone="ghost"
         onPress={async () => {
-          const res = await exportBackupJson({ courses, slots, marks, settings });
+          const res = await exportBackupJson({ courses, slots, marks, settings, oneOffs });
           if (!res.ok) Alert.alert('Backup', res.message);
         }}
         style={{ marginTop: space.md }}
