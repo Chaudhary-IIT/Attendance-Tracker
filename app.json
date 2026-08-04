@@ -15,7 +15,6 @@
     },
     "android": {
       "package": "com.naman.attendancetracker",
-      "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "backgroundColor": "#08080C",
         "foregroundImage": "./assets/android-icon-foreground.png",
