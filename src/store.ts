@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 import { DEFAULT_SLOTS } from './data/slots';
 import { dateKey, markKey } from './lib/schedule';
 import type {
@@ -255,12 +256,29 @@ export const useStore = create<State>((set, get) => {
 });
 
 /** Stable selector helpers so components subscribe to the narrowest slice. */
-export const selectScheduleInput = (s: State) => ({
+/**
+ * The bundle of state the scheduling engine needs.
+ *
+ * MUST be wrapped in `useShallow`. Zustand v5 compares selector results with
+ * `Object.is` through `useSyncExternalStore`, so a selector that builds a fresh
+ * object literal looks different on every render and re-renders forever
+ * ("Maximum update depth exceeded"). `useShallow` compares the fields instead
+ * and hands back the previous object when they all match, which also keeps the
+ * reference stable enough to use in `useMemo` dependency lists.
+ *
+ * Use the `useScheduleInput()` hook below rather than passing this to
+ * `useStore` directly.
+ */
+const scheduleInputSelector = (s: State) => ({
   courses: s.courses,
   slots: s.slots,
   marks: s.marks,
   settings: s.settings,
   oneOffs: s.oneOffs,
 });
+
+export function useScheduleInput() {
+  return useStore(useShallow(scheduleInputSelector));
+}
 
 export const todayKey = () => dateKey(new Date());

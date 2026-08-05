@@ -7,14 +7,14 @@ import { Button, Card, SectionHeader, Txt } from '../../src/components/ui';
 import { exportBackupJson, exportTimetablePdf } from '../../src/lib/export';
 import { requestPermission } from '../../src/lib/notifications';
 import { dateKey } from '../../src/lib/schedule';
-import { selectScheduleInput, useStore } from '../../src/store';
+import { useScheduleInput, useStore } from '../../src/store';
 import { colors, space } from '../../src/theme';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const input = useStore(selectScheduleInput);
+  const input = useScheduleInput();
   const { courses, slots, marks, settings, oneOffs } = input;
   const updateSettings = useStore((s) => s.updateSettings);
   const toggleHoliday = useStore((s) => s.toggleHoliday);

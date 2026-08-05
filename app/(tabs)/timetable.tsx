@@ -17,7 +17,7 @@ import {
   formatTime,
   toMinutes,
 } from '../../src/lib/schedule';
-import { selectScheduleInput, useStore } from '../../src/store';
+import { useScheduleInput, useStore } from '../../src/store';
 import { colors, paletteAt, radius, space } from '../../src/theme';
 import type { Course } from '../../src/types';
 
@@ -30,7 +30,7 @@ export default function TimetableScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const now = useNow(30000);
-  const input = useStore(selectScheduleInput);
+  const input = useScheduleInput();
   const { courses, slots, marks, settings } = input;
 
   const [view, setView] = React.useState<TimetableView>('grid');

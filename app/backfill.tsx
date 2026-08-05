@@ -12,7 +12,7 @@ import {
   dateKey,
   teachingDatesBetween,
 } from '../src/lib/schedule';
-import { selectScheduleInput, useStore } from '../src/store';
+import { useScheduleInput, useStore } from '../src/store';
 import { colors, radius, space } from '../src/theme';
 
 const RANGE_PRESETS = [
@@ -32,7 +32,7 @@ export default function BackfillScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const input = useStore(selectScheduleInput);
+  const input = useScheduleInput();
   const setMark = useStore((s) => s.setMark);
   const settings = input.settings;
 

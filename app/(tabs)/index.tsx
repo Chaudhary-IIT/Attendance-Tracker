@@ -18,7 +18,7 @@ import {
   unmarkedBefore,
 } from '../../src/lib/schedule';
 import { pingBeforeClass, rescheduleReminders } from '../../src/lib/notifications';
-import { selectScheduleInput, useStore } from '../../src/store';
+import { useScheduleInput, useStore } from '../../src/store';
 import { colors, healthColor, paletteAt, radius, shadow, space } from '../../src/theme';
 
 export default function TodayScreen() {
@@ -26,7 +26,7 @@ export default function TodayScreen() {
   const router = useRouter();
   const now = useNow(1000);
 
-  const input = useStore(selectScheduleInput);
+  const input = useScheduleInput();
   const { courses, settings, marks } = input;
 
   const today = React.useMemo(() => classesOn(now, input), [input, now.toDateString()]);
