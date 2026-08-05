@@ -1,6 +1,7 @@
 import { DEFAULT_SLOTS } from '../src/data/slots';
 import {
   classesOn,
+  courseMeetings,
   dateKey,
   markKey,
   nextClass,
@@ -47,6 +48,8 @@ const mkCourse = (over: Partial<Course> = {}): Course => ({
   extraMeetings: [],
   colorIndex: 0,
   minAttendance: null,
+  startDate: null,
+  mutedMeetingIds: [],
   archived: false,
   createdAt: 0,
   ...over,
@@ -231,6 +234,92 @@ check(
 );
 
 /* ---------------------------------------------------------------- stats -- */
+
+console.log('\n--- course start date ---');
+// The bug this guards: adding a course today used to invent a fortnight of
+// classes you had supposedly already missed.
+const startedToday = mkCourse({ startDate: '2026-08-05' });
+check(
+  'no classes before the course started',
+  classesOn(monday, { ...base, courses: [startedToday] }).length,
+  0,
+);
+check(
+  'classes on the start date appear (inclusive)',
+  classesOn(new Date(2026, 7, 5), { ...base, courses: [startedToday] }).length,
+  1,
+);
+check(
+  'null startDate keeps unbounded behaviour',
+  classesOn(monday, { ...base, courses: [mkCourse({ startDate: null })] }).length,
+  1,
+);
+check(
+  'no backlog invented before the start date',
+  unmarkedBefore(new Date(2026, 7, 5, 23, 0), { ...base, courses: [startedToday] }, 14).filter(
+    (c) => c.date < '2026-08-05',
+  ).length,
+  0,
+);
+check(
+  'an explicit one-off is not gated by the start date',
+  classesOn(monday, {
+    ...base,
+    courses: [startedToday],
+    oneOffs: [mkOneOff({ date: '2026-08-03' })],
+  }).length,
+  1,
+);
+check(
+  'backfill walk skips pre-start dates',
+  teachingDatesBetween(new Date(2026, 7, 3), new Date(2026, 7, 7), {
+    ...base,
+    courses: [startedToday],
+  }).map((d) => d.getDate()),
+  [5, 7],
+);
+
+console.log('\n--- per-course session overrides ---');
+// Slot A meets 4x. A course in slot A that skips one session should see 3,
+// while the slot itself stays intact for every other course using it.
+const slotA = DEFAULT_SLOTS.find((x) => x.key === 'A')!;
+const a1 = slotA.meetings[0]; // Mon 08:00
+const trimmed = mkCourse({ id: 'ct', slotKey: 'A', mutedMeetingIds: [a1.id] });
+
+check('slot still offers 4 sessions', slotA.meetings.length, 4);
+check('course sees only 3', courseMeetings(trimmed, DEFAULT_SLOTS).length, 3);
+check(
+  'the muted session is the one dropped',
+  courseMeetings(trimmed, DEFAULT_SLOTS).some((m) => m.id === a1.id),
+  false,
+);
+check(
+  'muted session is not scheduled',
+  classesOn(monday, { ...base, courses: [trimmed] }).length,
+  0,
+);
+check(
+  'its other sessions still are',
+  classesOn(new Date(2026, 7, 4), { ...base, courses: [trimmed] }).length,
+  1,
+);
+check(
+  'other courses in the slot keep all 4',
+  courseMeetings(mkCourse({ id: 'co', slotKey: 'A' }), DEFAULT_SLOTS).length,
+  4,
+);
+check(
+  'extras still add on top of a trimmed slot',
+  courseMeetings(
+    mkCourse({
+      slotKey: 'A',
+      mutedMeetingIds: [a1.id],
+      extraMeetings: [{ id: 'e', day: 6, start: '10:00', end: '11:00' }],
+    }),
+    DEFAULT_SLOTS,
+  ).length,
+  4,
+);
 
 console.log('\n--- attendance math ---');
 const marksOf = (present: number, absent: number, cancelled = 0) => {

@@ -23,6 +23,7 @@ import { colors, radius, shadow, space, type } from '../theme';
 import { useStore } from '../store';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /* ------------------------------------------------------------------ text -- */
 
@@ -67,7 +68,15 @@ type SquishProps = PressableProps & {
   children: React.ReactNode;
 };
 
-/** Pressable with a spring squish + haptic tick. Used for anything tappable. */
+/**
+ * Pressable with a spring squish + haptic tick. Used for anything tappable.
+ *
+ * Style and transform go on the *same* element. An earlier version nested an
+ * Animated.View inside a bare Pressable and styled only the inner view, which
+ * meant layout props never reached the element the parent flexbox measures:
+ * a `flex: 1` Squish in a row collapsed to its content width and squeezed its
+ * children out of the container.
+ */
 export function Squish({ scaleTo = 0.96, haptic = 'light', onPress, style, children, ...rest }: SquishProps) {
   const scale = useSharedValue(1);
   const fire = useHaptic();
@@ -75,7 +84,7 @@ export function Squish({ scaleTo = 0.96, haptic = 'light', onPress, style, child
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
-    <Pressable
+    <AnimatedPressable
       {...rest}
       onPressIn={(e) => {
         scale.value = withSpring(scaleTo, { damping: 18, stiffness: 380 });
@@ -89,9 +98,10 @@ export function Squish({ scaleTo = 0.96, haptic = 'light', onPress, style, child
         if (haptic !== 'none') fire(haptic);
         onPress?.(e);
       }}
+      style={[style as any, animStyle]}
     >
-      <Animated.View style={[animStyle, style as any]}>{children}</Animated.View>
-    </Pressable>
+      {children}
+    </AnimatedPressable>
   );
 }
 

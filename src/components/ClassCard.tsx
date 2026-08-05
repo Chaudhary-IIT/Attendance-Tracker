@@ -71,17 +71,17 @@ export function ClassCard({
         >
           <View style={styles.headRow}>
             <View style={styles.timeCol}>
-              <Txt variant="h3" color={colors.text}>
+              <Txt variant="h3" color={colors.text} numberOfLines={1}>
                 {formatTime(instance.meeting.start)}
               </Txt>
-              <Txt variant="tiny" color={colors.textFaint} style={{ marginTop: 2 }}>
+              <Txt variant="tiny" color={colors.textFaint} numberOfLines={1} style={{ marginTop: 2 }}>
                 {formatTime(instance.meeting.end)}
               </Txt>
             </View>
 
             <View style={{ flex: 1 }}>
               <View style={styles.codeRow}>
-                <Txt variant="tiny" color={color}>
+                <Txt variant="tiny" color={color} numberOfLines={1} style={{ flexShrink: 1 }}>
                   {instance.course.code}
                 </Txt>
                 {instance.meeting.label ? (
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   rail: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
   body: { paddingLeft: space.lg + 2, paddingRight: space.lg, paddingTop: space.lg },
   headRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md },
-  timeCol: { width: 62, paddingTop: 1 },
+  timeCol: { width: 84, paddingTop: 1 },
   codeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   tag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 },
   badge: {

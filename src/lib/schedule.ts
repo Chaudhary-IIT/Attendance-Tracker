@@ -65,10 +65,25 @@ export function markKey(courseId: string, date: string, meetingId: string): stri
   return `${courseId}|${date}|${meetingId}`;
 }
 
-/** All meetings a course actually has: its slot's, plus its own extras. */
+/**
+ * The meetings a course actually has: the ones inherited from its slot, minus
+ * any this course opts out of, plus its own extras.
+ */
 export function courseMeetings(course: Course, slots: Slot[]): Meeting[] {
   const slot = course.slotKey ? slots.find((s) => s.key === course.slotKey) : undefined;
-  return [...(slot?.meetings ?? []), ...course.extraMeetings];
+  const muted = course.mutedMeetingIds ?? [];
+  const inherited = (slot?.meetings ?? []).filter((m) => !muted.includes(m.id));
+  return [...inherited, ...course.extraMeetings];
+}
+
+/** Every meeting the slot offers, flagged with whether this course attends it. */
+export function inheritedMeetings(
+  course: Course,
+  slots: Slot[],
+): { meeting: Meeting; muted: boolean }[] {
+  const slot = course.slotKey ? slots.find((s) => s.key === course.slotKey) : undefined;
+  const muted = course.mutedMeetingIds ?? [];
+  return (slot?.meetings ?? []).map((m) => ({ meeting: m, muted: muted.includes(m.id) }));
 }
 
 export function findSlot(course: Course, slots: Slot[]): Slot | null {
@@ -116,6 +131,9 @@ export function classesOn(date: Date, input: ScheduleInput): ClassInstance[] {
   if (isTeachingDay(date, settings)) {
     for (const course of courses) {
       if (course.archived) continue;
+      // A course cannot have met before it started. Without this, adding a
+      // course today invents a fortnight of classes you supposedly missed.
+      if (course.startDate && key < course.startDate) continue;
       const slot = findSlot(course, slots);
       for (const meeting of courseMeetings(course, slots)) {
         if (meeting.day !== day) continue;

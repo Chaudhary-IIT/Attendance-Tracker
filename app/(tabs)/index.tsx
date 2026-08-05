@@ -230,6 +230,19 @@ export default function TodayScreen() {
         </Card>
       </Animated.View>
 
+      {/* ----------------------------------------------------------- today -- */}
+      <SectionHeader title={`Today · ${today.length} class${today.length === 1 ? '' : 'es'}`} />
+      {today.length === 0 ? (
+        <Card padded style={{ alignItems: 'center', paddingVertical: space.xxl }}>
+          <Txt variant="h2">Free day</Txt>
+          <Txt variant="small" color={colors.textDim} center style={{ marginTop: space.sm }}>
+            No classes scheduled for {DAY_NAMES[now.getDay()]}.
+          </Txt>
+        </Card>
+      ) : (
+        today.map((c) => <ClassCard key={c.key} instance={c} />)
+      )}
+
       {/* --------------------------------------------------------- backlog -- */}
       {backlog.length > 0 ? (
         <>
@@ -244,19 +257,6 @@ export default function TodayScreen() {
           ) : null}
         </>
       ) : null}
-
-      {/* ----------------------------------------------------------- today -- */}
-      <SectionHeader title={`Today · ${today.length} class${today.length === 1 ? '' : 'es'}`} />
-      {today.length === 0 ? (
-        <Card padded style={{ alignItems: 'center', paddingVertical: space.xxl }}>
-          <Txt variant="h2">Free day</Txt>
-          <Txt variant="small" color={colors.textDim} center style={{ marginTop: space.sm }}>
-            No classes scheduled for {DAY_NAMES[now.getDay()]}.
-          </Txt>
-        </Card>
-      ) : (
-        today.map((c) => <ClassCard key={c.key} instance={c} />)
-      )}
 
       <View style={styles.footerActions}>
         <Button

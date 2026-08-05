@@ -41,9 +41,22 @@ export type Course = {
   slotKey: string | null;
   /** Meetings on top of (or instead of) the slot's own meetings. */
   extraMeetings: Meeting[];
+  /**
+   * Ids of the slot's meetings this particular course does NOT attend.
+   * Lets one course drop a session its slot nominally has, without editing the
+   * slot and disturbing every other course attached to it.
+   */
+  mutedMeetingIds: string[];
   colorIndex: number;
   /** Per-course attendance requirement in percent; falls back to settings. */
   minAttendance: number | null;
+  /**
+   * "YYYY-MM-DD" — the first day this course actually met. Classes before it
+   * never existed, so they are not scheduled and cannot count against you.
+   * Defaults to the day the course was added; move it back to record a course
+   * that started earlier, then use Backfill to fill in the history.
+   */
+  startDate: string | null;
   archived: boolean;
   createdAt: number;
 };

@@ -144,7 +144,7 @@ function CourseRow({
         <View style={styles.rowTop}>
           <View style={{ flex: 1 }}>
             <View style={styles.rowCodeLine}>
-              <Txt variant="tiny" color={c.base}>
+              <Txt variant="tiny" color={c.base} numberOfLines={1} style={{ flexShrink: 1 }}>
                 {course.code}
               </Txt>
               {course.slotKey ? (
@@ -193,11 +193,16 @@ function CourseRow({
         </View>
 
         <View style={styles.rowBottom}>
-          <Txt variant="small" color={colors.textDim}>
+          <Txt variant="small" color={colors.textDim} numberOfLines={1} style={{ flexShrink: 0 }}>
             {stats.present}/{stats.held} attended
             {stats.cancelled > 0 ? ` · ${stats.cancelled} cancelled` : ''}
           </Txt>
-          <Txt variant="small" color={health}>
+          <Txt
+            variant="small"
+            color={health}
+            numberOfLines={2}
+            style={{ flexShrink: 1, textAlign: 'right' }}
+          >
             {verdict}
           </Txt>
         </View>

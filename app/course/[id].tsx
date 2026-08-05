@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -15,9 +15,13 @@ import {
 import { Button, Card, Ring, SectionHeader, Squish, Txt } from '../../src/components/ui';
 import {
   DAY_SHORT,
+  addDays,
   courseMeetings,
+  dateKey,
   findSlot,
+  inheritedMeetings,
   formatTime,
+  parseDateKey,
   statsFor,
 } from '../../src/lib/schedule';
 import { uid, useStore } from '../../src/store';
@@ -54,6 +58,7 @@ export default function CourseScreen() {
   const health = healthColor(stats.percent, stats.threshold);
   const slot = findSlot(course, slots);
   const meetings = courseMeetings(course, slots);
+  const inherited = inheritedMeetings(course, slots);
 
   const patch = (p: Parameters<typeof updateCourse>[1]) => updateCourse(course.id, p);
 
@@ -305,6 +310,77 @@ export default function CourseScreen() {
               })}
             </View>
 
+            {slot ? (
+              <>
+                <SectionHeader title={`Sessions from ${slot.name}`} />
+                <Txt
+                  variant="tiny"
+                  color={colors.textFaint}
+                  style={{ marginBottom: space.md, letterSpacing: 0 }}
+                >
+                  Turn off any session this course doesn't actually attend. This affects only this
+                  course — {slot.name} itself, and every other course in it, is left alone.
+                </Txt>
+                {inherited.length === 0 ? (
+                  <Card padded>
+                    <Txt variant="small" color={colors.textFaint}>
+                      {slot.name} has no timings yet.
+                    </Txt>
+                  </Card>
+                ) : (
+                  <Card padded={false}>
+                    {inherited.map(({ meeting: mt, muted }, i) => (
+                      <View
+                        key={mt.id}
+                        style={[
+                          styles.muteRow,
+                          i === inherited.length - 1 && { borderBottomWidth: 0 },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.dayChip,
+                            { backgroundColor: muted ? colors.surfaceHi : `${c.base}1F` },
+                          ]}
+                        >
+                          <Txt variant="tiny" color={muted ? colors.textFaint : c.base}>
+                            {DAY_SHORT[mt.day].toUpperCase()}
+                          </Txt>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Txt
+                            variant="body"
+                            color={muted ? colors.textFaint : colors.text}
+                            numberOfLines={1}
+                            style={muted ? { textDecorationLine: 'line-through' } : undefined}
+                          >
+                            {formatTime(mt.start)} – {formatTime(mt.end)}
+                          </Txt>
+                          {mt.label ? (
+                            <Txt variant="tiny" color={colors.textFaint} style={{ marginTop: 2 }}>
+                              {mt.label}
+                            </Txt>
+                          ) : null}
+                        </View>
+                        <Switch
+                          value={!muted}
+                          onValueChange={(on) =>
+                            patch({
+                              mutedMeetingIds: on
+                                ? course.mutedMeetingIds.filter((x) => x !== mt.id)
+                                : [...course.mutedMeetingIds, mt.id],
+                            })
+                          }
+                          trackColor={{ false: colors.surfaceHi, true: colors.accent }}
+                          thumbColor={colors.text}
+                        />
+                      </View>
+                    ))}
+                  </Card>
+                )}
+              </>
+            ) : null}
+
             <SectionHeader title="Extra meetings" action="+ Add" onAction={addExtraMeeting} />
             <Txt variant="tiny" color={colors.textFaint} style={{ marginBottom: space.md, letterSpacing: 0 }}>
               Timings that belong to this course alone — a make-up class, a tutorial, or the whole
@@ -348,6 +424,90 @@ export default function CourseScreen() {
                 </Animated.View>
               ))
             )}
+
+            <SectionHeader title="Tracking period" />
+            <Field
+              label="Course started on"
+              hint="Classes before this date are not scheduled and never count against you. Move it back to record a course that began earlier, then use Backfill."
+            >
+              <View style={styles.dateRow}>
+                <Squish
+                  scaleTo={0.9}
+                  onPress={() =>
+                    patch({
+                      startDate: dateKey(
+                        addDays(parseDateKey(course.startDate ?? dateKey(new Date())), -1),
+                      ),
+                    })
+                  }
+                  style={styles.dateNav}
+                >
+                  <Txt variant="h3" color={colors.textDim}>
+                    ‹
+                  </Txt>
+                </Squish>
+
+                <View style={styles.dateBox}>
+                  <Txt variant="h3">
+                    {parseDateKey(course.startDate ?? dateKey(new Date())).toLocaleDateString(
+                      undefined,
+                      { day: 'numeric', month: 'short', year: 'numeric' },
+                    )}
+                  </Txt>
+                  <Txt variant="tiny" color={colors.textFaint} style={{ marginTop: 2 }}>
+                    {DAY_SHORT[
+                      parseDateKey(course.startDate ?? dateKey(new Date())).getDay()
+                    ].toUpperCase()}
+                  </Txt>
+                </View>
+
+                <Squish
+                  scaleTo={0.9}
+                  onPress={() =>
+                    patch({
+                      startDate: dateKey(
+                        addDays(parseDateKey(course.startDate ?? dateKey(new Date())), 1),
+                      ),
+                    })
+                  }
+                  style={styles.dateNav}
+                >
+                  <Txt variant="h3" color={colors.textDim}>
+                    ›
+                  </Txt>
+                </Squish>
+              </View>
+            </Field>
+            <View style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.lg }}>
+              {[
+                { label: '−1 week', days: -7 },
+                { label: '−1 month', days: -30 },
+                { label: 'Today', days: null as number | null },
+              ].map((q) => (
+                <Squish
+                  key={q.label}
+                  scaleTo={0.93}
+                  onPress={() =>
+                    patch({
+                      startDate:
+                        q.days == null
+                          ? dateKey(new Date())
+                          : dateKey(
+                              addDays(
+                                parseDateKey(course.startDate ?? dateKey(new Date())),
+                                q.days,
+                              ),
+                            ),
+                    })
+                  }
+                  style={styles.quickChip}
+                >
+                  <Txt variant="tiny" color={colors.textDim}>
+                    {q.label}
+                  </Txt>
+                </Squish>
+              ))}
+            </View>
 
             <SectionHeader title="Attendance rule" />
             <Field
@@ -461,4 +621,39 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   slotChipActive: { backgroundColor: colors.text, borderColor: colors.text },
+  muteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingVertical: 11,
+    paddingHorizontal: space.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  dateNav: {
+    width: 44,
+    height: 52,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHi,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateBox: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickChip: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceHi,
+    alignItems: 'center',
+  },
 });

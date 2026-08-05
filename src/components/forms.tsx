@@ -231,7 +231,7 @@ export function NavRow({
         ) : null}
       </View>
       {value ? (
-        <Txt variant="small" color={colors.textDim}>
+        <Txt variant="small" color={colors.textDim} numberOfLines={1} style={{ flexShrink: 0 }}>
           {value}
         </Txt>
       ) : null}

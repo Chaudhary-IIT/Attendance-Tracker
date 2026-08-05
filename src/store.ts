@@ -44,7 +44,13 @@ type State = Persisted & {
 
   hydrate: () => Promise<void>;
 
-  addCourse: (course: Omit<Course, 'id' | 'createdAt'>) => string;
+  /** `startDate` is optional; it defaults to today. */
+  addCourse: (
+    course: Omit<Course, 'id' | 'createdAt' | 'startDate' | 'mutedMeetingIds'> & {
+      startDate?: string | null;
+      mutedMeetingIds?: string[];
+    },
+  ) => string;
   updateCourse: (id: string, patch: Partial<Course>) => void;
   deleteCourse: (id: string) => void;
 
@@ -106,7 +112,13 @@ export const useStore = create<State>((set, get) => {
         if (raw) {
           const parsed = JSON.parse(raw) as Partial<Persisted>;
           set({
-            courses: parsed.courses ?? [],
+            courses: (parsed.courses ?? []).map((c) => ({
+              ...c,
+              // Written before startDate existed: assume the course began the
+              // day it was added, which is what the user actually observed.
+              startDate: c.startDate ?? dateKey(new Date(c.createdAt || Date.now())),
+              mutedMeetingIds: c.mutedMeetingIds ?? [],
+            })),
             // An empty slot list would leave the user stranded with no grid.
             slots: parsed.slots?.length ? parsed.slots : DEFAULT_SLOTS,
             marks: parsed.marks ?? {},
@@ -124,7 +136,21 @@ export const useStore = create<State>((set, get) => {
 
     addCourse: (course) => {
       const id = uid('course');
-      commit({ courses: [...get().courses, { ...course, id, createdAt: Date.now() }] });
+      const now = Date.now();
+      commit({
+        courses: [
+          ...get().courses,
+          {
+            ...course,
+            // Default to today so a newly added course never back-dates a
+            // fortnight of classes you were never told about.
+            startDate: course.startDate ?? dateKey(new Date(now)),
+            mutedMeetingIds: course.mutedMeetingIds ?? [],
+            id,
+            createdAt: now,
+          },
+        ],
+      });
       return id;
     },
 
