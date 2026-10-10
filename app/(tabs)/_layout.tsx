@@ -2,7 +2,8 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { colors, radius, type } from '../../src/theme';
+import { radius, type, type Theme } from '../../src/theme';
+import { useColors, useThemedStyles } from '../../src/theme-context';
 
 const ICONS: Record<string, string> = {
   index: '◎',
@@ -19,6 +20,8 @@ const LABELS: Record<string, string> = {
 };
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
   const scale = useSharedValue(focused ? 1 : 0.9);
 
   React.useEffect(() => {
@@ -30,9 +33,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   return (
     <Animated.View style={[styles.tabItem, animStyle]}>
       <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-        <Text style={{ fontSize: 17, color: focused ? colors.accent : colors.textFaint }}>
-          {ICONS[name]}
-        </Text>
+        <Text style={{ fontSize: 17, color: focused ? colors.accent : colors.textFaint }}>{ICONS[name]}</Text>
       </View>
       <Text
         style={[
@@ -48,6 +49,9 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
 }
 
 export default function TabsLayout() {
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Tabs
       screenOptions={({ route }) => ({
@@ -67,23 +71,24 @@ export default function TabsLayout() {
   );
 }
 
-const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: colors.bgElevated,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    height: Platform.OS === 'ios' ? 84 : 66,
-    paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 26 : 8,
-    elevation: 0,
-  },
-  tabItem: { alignItems: 'center', justifyContent: 'center', width: 70 },
-  iconWrap: {
-    width: 34,
-    height: 24,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconWrapActive: { backgroundColor: colors.accentSoft },
-});
+const makeStyles = ({ colors }: Theme) =>
+  StyleSheet.create({
+    tabBar: {
+      backgroundColor: colors.bgElevated,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      height: Platform.OS === 'ios' ? 84 : 66,
+      paddingTop: 8,
+      paddingBottom: Platform.OS === 'ios' ? 26 : 8,
+      elevation: 0,
+    },
+    tabItem: { alignItems: 'center', justifyContent: 'center', width: 70 },
+    iconWrap: {
+      width: 34,
+      height: 24,
+      borderRadius: radius.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    iconWrapActive: { backgroundColor: colors.accentSoft },
+  });

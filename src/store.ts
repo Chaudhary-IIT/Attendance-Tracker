@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
   semesterEnd: null,
   holidays: [],
   hapticsEnabled: true,
+  themePref: 'system',
 };
 
 /** Collision-resistant enough for a single-device local store. */

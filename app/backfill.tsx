@@ -13,7 +13,8 @@ import {
   teachingDatesBetween,
 } from '../src/lib/schedule';
 import { useScheduleInput, useStore } from '../src/store';
-import { colors, radius, space } from '../src/theme';
+import { radius, space, type Theme } from '../src/theme';
+import { useColors, useThemedStyles } from '../src/theme-context';
 
 const RANGE_PRESETS = [
   { label: '2 weeks', days: 14 },
@@ -29,6 +30,8 @@ const RANGE_PRESETS = [
  * something to mark enter the queue, so a 4-month range is still a short walk.
  */
 export default function BackfillScreen() {
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -126,7 +129,7 @@ export default function BackfillScreen() {
                 onPress={() => setRangeDays(p.days)}
                 style={[styles.preset, on && { backgroundColor: colors.accent, borderColor: colors.accent }]}
               >
-                <Txt variant="small" color={on ? colors.bg : colors.textDim}>
+                <Txt variant="small" color={on ? colors.onAccent : colors.textDim}>
                   {p.label}
                 </Txt>
               </Squish>
@@ -307,7 +310,7 @@ export default function BackfillScreen() {
             onPress={goNext}
             style={[styles.nextAction, allMarked && { backgroundColor: colors.present }]}
           >
-            <Txt variant="h3" color={colors.bg}>
+            <Txt variant="h3" color={colors.onAccent}>
               {allMarked ? 'Next day ›' : 'Skip day ›'}
             </Txt>
           </Squish>
@@ -317,7 +320,8 @@ export default function BackfillScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) =>
+  StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',

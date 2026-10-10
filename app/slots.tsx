@@ -6,9 +6,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Squish, Txt } from '../src/components/ui';
 import { DAY_SHORT, formatTime, toMinutes } from '../src/lib/schedule';
 import { useStore } from '../src/store';
-import { colors, paletteAt, radius, space } from '../src/theme';
+import { radius, space, type Theme } from '../src/theme';
+import { useColors, useTheme, useThemedStyles } from '../src/theme-context';
 
 export default function SlotsScreen() {
+  const colors = useColors();
+  const { paletteAt } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -64,7 +68,7 @@ export default function SlotsScreen() {
         </Txt>
 
         {slots.map((slot, i) => {
-          const c = paletteAt(slot.colorIndex);
+          const entry = paletteAt(slot.colorIndex);
           const usedBy = courses.filter((co) => co.slotKey === slot.key && !co.archived).length;
           const sorted = [...slot.meetings].sort(
             (a, b) =>
@@ -81,13 +85,13 @@ export default function SlotsScreen() {
               <Squish
                 scaleTo={0.98}
                 onPress={() => router.push(`/slot/${slot.id}`)}
-                style={[styles.slotCard, { borderColor: `${c.base}26` }]}
+                style={[styles.slotCard, { borderColor: `${entry.base}26` }]}
               >
-                <View style={[styles.rail, { backgroundColor: c.base }]} />
+                <View style={[styles.rail, { backgroundColor: entry.base }]} />
 
                 <View style={styles.slotHead}>
-                  <View style={[styles.keyBadge, { backgroundColor: c.base }]}>
-                    <Txt variant="small" color={colors.bg}>
+                  <View style={[styles.keyBadge, { backgroundColor: entry.base }]}>
+                    <Txt variant="small" color={colors.onAccent}>
                       {slot.key}
                     </Txt>
                   </View>
@@ -106,8 +110,8 @@ export default function SlotsScreen() {
                 {sorted.length > 0 ? (
                   <View style={styles.meetingList}>
                     {sorted.map((mt) => (
-                      <View key={mt.id} style={[styles.meetChip, { backgroundColor: c.tint }]}>
-                        <Txt variant="tiny" color={c.base}>
+                      <View key={mt.id} style={[styles.meetChip, { backgroundColor: entry.tint }]}>
+                        <Txt variant="tiny" color={entry.base}>
                           {DAY_SHORT[mt.day].toUpperCase()} {formatTime(mt.start)}
                         </Txt>
                       </View>
@@ -129,7 +133,8 @@ export default function SlotsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) =>
+  StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',

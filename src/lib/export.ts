@@ -2,7 +2,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { DAY_NAMES, courseMeetings, formatTime, toMinutes } from './schedule';
-import { paletteAt } from '../theme';
+import { themes } from '../theme';
 import type { AttendanceMark, Course, OneOffClass, Settings, Slot } from '../types';
 import { statsFor } from './schedule';
 
@@ -15,6 +15,9 @@ function escapeHtml(s: string): string {
 }
 
 type GridCell = { course: Course; label?: string; room: string };
+
+/** The PDF is a printed page: always the light palette, never the app's theme. */
+const paletteAt = themes.light.paletteAt;
 
 /**
  * Builds the printable timetable: a light-theme HTML page with the weekly grid

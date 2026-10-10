@@ -19,7 +19,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { colors, radius, shadow, space, type } from '../theme';
+import { useColors, useTheme, useThemedStyles } from '../theme-context';
+import { radius, space, type, type Theme } from '../theme';
 import { useStore } from '../store';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -33,11 +34,12 @@ type TxtProps = TextProps & {
   center?: boolean;
 };
 
-export function Txt({ variant = 'body', color = colors.text, center, style, ...rest }: TxtProps) {
+export function Txt({ variant = 'body', color, center, style, ...rest }: TxtProps) {
+  const colors = useColors();
   return (
     <Text
       {...rest}
-      style={[type[variant], { color }, center && { textAlign: 'center' }, style]}
+      style={[type[variant], { color: color ?? colors.text }, center && { textAlign: 'center' }, style]}
     />
   );
 }
@@ -115,6 +117,8 @@ type CardProps = ViewProps & {
 };
 
 export function Card({ tint, borderColor, padded = true, elevated, style, ...rest }: CardProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { shadow } = useTheme();
   return (
     <View
       {...rest}
@@ -140,6 +144,8 @@ export function SectionHeader({
   action?: string;
   onAction?: () => void;
 }) {
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.sectionHeader}>
       <Txt variant="tiny" color={colors.textFaint} style={{ textTransform: 'uppercase' }}>
@@ -170,6 +176,9 @@ export function SegmentedControl<T extends string>({
   onChange: (v: T) => void;
   scroll?: boolean;
 }) {
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
+
   const body = (
     <View style={styles.segmentRow}>
       {options.map((opt) => {
@@ -181,7 +190,7 @@ export function SegmentedControl<T extends string>({
             onPress={() => onChange(opt.value)}
             style={[styles.segment, active && styles.segmentActive]}
           >
-            <Txt variant="small" color={active ? colors.bg : colors.textDim}>
+            <Txt variant="small" color={active ? colors.bgElevated : colors.textDim}>
               {opt.label}
             </Txt>
           </Squish>
@@ -209,7 +218,7 @@ export function Ring({
   size = 120,
   stroke = 11,
   color,
-  trackColor = 'rgba(255,255,255,0.07)',
+  trackColor,
   children,
 }: {
   percent: number | null;
@@ -219,6 +228,7 @@ export function Ring({
   trackColor?: string;
   children?: React.ReactNode;
 }) {
+  const colors = useColors();
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
   const progress = useSharedValue(0);
@@ -247,7 +257,7 @@ export function Ring({
           cx={size / 2}
           cy={size / 2}
           r={r}
-          stroke={trackColor}
+          stroke={trackColor ?? colors.track}
           strokeWidth={stroke}
           fill="none"
         />
@@ -270,8 +280,23 @@ export function Ring({
   );
 }
 
-/** Slim horizontal meter, for per-course rows. */
-export function Bar({ percent, color, height = 6 }: { percent: number | null; color: string; height?: number }) {
+/**
+ * Slim horizontal meter, for per-course rows. `marker` draws a hairline at a
+ * second percentage — the attendance target — so a row shows not just where you
+ * are but how far that is from the line you have to stay above.
+ */
+export function Bar({
+  percent,
+  color,
+  height = 6,
+  marker,
+}: {
+  percent: number | null;
+  color: string;
+  height?: number;
+  marker?: number | null;
+}) {
+  const styles = useThemedStyles(makeStyles);
   const w = useSharedValue(0);
   React.useEffect(() => {
     w.value = withTiming(Math.max(0, Math.min(100, percent ?? 0)), { duration: 700 });
@@ -281,6 +306,9 @@ export function Bar({ percent, color, height = 6 }: { percent: number | null; co
   return (
     <View style={[styles.barTrack, { height, borderRadius: height }]}>
       <Animated.View style={[{ height, borderRadius: height, backgroundColor: color }, style]} />
+      {marker != null && marker > 0 && marker < 100 ? (
+        <View style={[styles.barMarker, { left: `${marker}%` }]} />
+      ) : null}
     </View>
   );
 }
@@ -300,6 +328,8 @@ export function EmptyState({
   actionLabel?: string;
   onAction?: () => void;
 }) {
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.empty}>
       <Text style={{ fontSize: 44, marginBottom: space.md }}>{icon}</Text>
@@ -311,7 +341,7 @@ export function EmptyState({
       </Txt>
       {actionLabel ? (
         <Squish onPress={onAction} haptic="medium" style={styles.emptyBtn}>
-          <Txt variant="h3" color={colors.bg}>
+          <Txt variant="h3" color={colors.onAccent}>
             {actionLabel}
           </Txt>
         </Squish>
@@ -321,8 +351,9 @@ export function EmptyState({
 }
 
 export function Loader() {
+  const colors = useColors();
   return (
-    <View style={styles.loader}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       <ActivityIndicator color={colors.accent} size="large" />
     </View>
   );
@@ -342,9 +373,11 @@ export function Button({
   disabled?: boolean;
   style?: ViewProps['style'];
 }) {
-  const bg =
-    tone === 'primary' ? colors.accent : tone === 'danger' ? colors.absentSoft : colors.surfaceHi;
-  const fg = tone === 'primary' ? colors.bg : tone === 'danger' ? colors.absent : colors.text;
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
+
+  const bg = tone === 'primary' ? colors.accent : tone === 'danger' ? colors.absentSoft : colors.surfaceHi;
+  const fg = tone === 'primary' ? colors.onAccent : tone === 'danger' ? colors.absent : colors.text;
 
   return (
     <Squish
@@ -359,68 +392,70 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: space.md,
-    marginTop: space.xl,
-  },
-  pill: {
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    alignSelf: 'flex-start',
-  },
-  segmentRow: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: radius.pill,
-    padding: 4,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  segment: {
-    flex: 1,
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  segmentActive: { backgroundColor: colors.text },
-  barTrack: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    overflow: 'hidden',
-    width: '100%',
-  },
-  empty: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 64,
-    paddingHorizontal: space.xl,
-  },
-  emptyBtn: {
-    marginTop: space.xl,
-    backgroundColor: colors.accent,
-    paddingHorizontal: space.xxl,
-    paddingVertical: 14,
-    borderRadius: radius.pill,
-  },
-  loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  button: {
-    paddingVertical: 15,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+const makeStyles = ({ colors }: Theme) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: space.md,
+      marginTop: space.xl,
+    },
+    segmentRow: {
+      flexDirection: 'row',
+      backgroundColor: colors.surface,
+      borderRadius: radius.pill,
+      padding: 4,
+      gap: 4,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    segment: {
+      flex: 1,
+      paddingVertical: 9,
+      paddingHorizontal: 14,
+      borderRadius: radius.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    segmentActive: { backgroundColor: colors.text },
+    barTrack: {
+      backgroundColor: colors.track,
+      overflow: 'hidden',
+      width: '100%',
+    },
+    barMarker: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      width: 2,
+      marginLeft: -1,
+      backgroundColor: colors.trackMark,
+    },
+    empty: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 64,
+      paddingHorizontal: space.xl,
+    },
+    emptyBtn: {
+      marginTop: space.xl,
+      backgroundColor: colors.accent,
+      paddingHorizontal: space.xxl,
+      paddingVertical: 14,
+      borderRadius: radius.pill,
+    },
+    button: {
+      paddingVertical: 15,
+      borderRadius: radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  });

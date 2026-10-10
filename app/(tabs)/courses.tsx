@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bar, EmptyState, SegmentedControl, Squish, Txt } from '../../src/components/ui';
 import { courseMeetings, statsFor } from '../../src/lib/schedule';
 import { useStore } from '../../src/store';
-import { colors, healthColor, paletteAt, radius, space } from '../../src/theme';
+import { healthColor, radius, space, type Theme } from '../../src/theme';
+import { useColors, useTheme, useThemedStyles } from '../../src/theme-context';
 import type { Course } from '../../src/types';
 
 type Filter = 'active' | 'risk' | 'archived';
@@ -14,6 +15,8 @@ type Filter = 'active' | 'risk' | 'archived';
 export default function CoursesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
 
   const courses = useStore((s) => s.courses);
   const slots = useStore((s) => s.slots);
@@ -22,42 +25,47 @@ export default function CoursesScreen() {
 
   const [filter, setFilter] = React.useState<Filter>('active');
 
-  const rows = React.useMemo(() => {
-    return courses
-      .map((course) => ({ course, stats: statsFor(course, marks, settings) }))
-      .filter(({ course, stats }) => {
-        if (filter === 'archived') return course.archived;
-        if (course.archived) return false;
-        if (filter === 'risk') return stats.percent != null && stats.percent < stats.threshold;
-        return true;
-      })
-      .sort((a, b) => {
-        // Most at-risk first; unmarked courses sink to the bottom.
-        const pa = a.stats.percent ?? 999;
-        const pb = b.stats.percent ?? 999;
-        return pa - pb || a.course.code.localeCompare(b.course.code);
-      });
+  const { rows, activeCount, riskCount } = React.useMemo(() => {
+    const all = courses.map((course) => ({ course, stats: statsFor(course, marks, settings) }));
+    return {
+      rows: all
+        .filter(({ course, stats }) => {
+          if (filter === 'archived') return course.archived;
+          if (course.archived) return false;
+          if (filter === 'risk') return stats.percent != null && stats.percent < stats.threshold;
+          return true;
+        })
+        .sort((a, b) => {
+          // Most at-risk first; unmarked courses sink to the bottom.
+          const pa = a.stats.percent ?? 999;
+          const pb = b.stats.percent ?? 999;
+          return pa - pb || a.course.code.localeCompare(b.course.code);
+        }),
+      activeCount: all.filter((r) => !r.course.archived).length,
+      riskCount: all.filter(
+        (r) => !r.course.archived && r.stats.percent != null && r.stats.percent < r.stats.threshold,
+      ).length,
+    };
   }, [courses, marks, settings, filter]);
-
-  const activeCount = courses.filter((c) => !c.archived).length;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + space.md }]}>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Txt variant="h1">Courses</Txt>
-          <Txt variant="small" color={colors.textFaint} style={{ marginTop: 2 }}>
+          <Txt variant="small" color={colors.textFaint} style={{ marginTop: 3 }}>
             {activeCount} enrolled · {settings.minAttendance}% target
+            {riskCount > 0 ? ` · ${riskCount} below` : ''}
           </Txt>
         </View>
         <Squish onPress={() => router.push('/add-course')} haptic="medium" style={styles.addBtn}>
-          <Txt variant="h2" color={colors.bg}>
+          <Txt color={colors.onAccent} style={styles.addGlyph}>
             +
           </Txt>
         </Squish>
       </View>
 
-      <View style={{ paddingHorizontal: space.lg, marginBottom: space.lg }}>
+      <View style={styles.filterWrap}>
         <SegmentedControl
           value={filter}
           onChange={setFilter}
@@ -110,6 +118,14 @@ export default function CoursesScreen() {
   );
 }
 
+/**
+ * One course, read top-down: what it is, how you're doing, what to do next.
+ *
+ * The name leads because that is what you scan for; the code and slot are
+ * demoted to a single metadata line. Every text block is capped to one or two
+ * lines with a fixed-width percentage badge on the right, so rows share the
+ * same silhouette however long the course titles are.
+ */
 function CourseRow({
   course,
   stats,
@@ -123,85 +139,104 @@ function CourseRow({
   index: number;
   onPress: () => void;
 }) {
-  const c = paletteAt(course.colorIndex);
-  const health = healthColor(stats.percent, stats.threshold);
+  const colors = useColors();
+  const { paletteAt } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+
+  const entry = paletteAt(course.colorIndex);
+  const health = healthColor(stats.percent, stats.threshold, colors);
 
   // The single most useful sentence about this course, right now.
   const verdict =
     stats.held === 0
-      ? `${meetingCount}× a week · nothing marked yet`
+      ? 'Nothing marked yet'
       : stats.percent != null && stats.percent >= stats.threshold
         ? stats.canSkip > 0
-          ? `Can skip ${stats.canSkip} more`
-          : 'Exactly at the line — do not skip'
-        : `Attend ${stats.mustAttend} in a row to recover`;
+          ? `${stats.canSkip} skip${stats.canSkip === 1 ? '' : 's'} in hand`
+          : 'At the line — do not skip'
+        : `Attend ${stats.mustAttend} to recover`;
+
+  // Room and faculty get their own line. Folded into the code/slot line they
+  // were the first thing `numberOfLines={1}` threw away, so the instructor
+  // simply never appeared.
+  const people = [course.room, course.faculty].filter(Boolean).join('  ·  ');
 
   return (
     <Animated.View entering={FadeInDown.duration(280).delay(index * 45)} layout={Layout.springify()}>
-      <Squish scaleTo={0.98} onPress={onPress} style={[styles.row, { borderColor: `${c.base}26` }]}>
-        <View style={[styles.rowRail, { backgroundColor: c.base }]} />
+      <Squish scaleTo={0.985} onPress={onPress} style={styles.row}>
+        <View
+          style={[styles.rowRail, { backgroundColor: course.archived ? colors.textFaint : entry.base }]}
+        />
 
-        <View style={styles.rowTop}>
-          <View style={{ flex: 1 }}>
-            <View style={styles.rowCodeLine}>
-              <Txt variant="tiny" color={c.base} numberOfLines={1} style={{ flexShrink: 1 }}>
-                {course.code}
+        <Txt variant="title" numberOfLines={2}>
+          {course.name}
+        </Txt>
+
+        <View style={styles.metaLine}>
+          <Txt variant="label" color={entry.base} numberOfLines={1}>
+            {course.code}
+          </Txt>
+          <Txt variant="label" color={colors.textFaint}>
+            ·
+          </Txt>
+          <Txt variant="label" color={colors.textFaint} numberOfLines={1}>
+            {course.slotKey ?? 'No slot'}
+          </Txt>
+          <Txt variant="label" color={colors.textFaint}>
+            ·
+          </Txt>
+          <Txt variant="label" color={colors.textFaint} numberOfLines={1}>
+            {meetingCount}×/week
+          </Txt>
+          {course.archived ? (
+            <View style={styles.archiveTag}>
+              <Txt variant="tiny" color={colors.textFaint}>
+                ARCHIVED
               </Txt>
-              {course.slotKey ? (
-                <View style={[styles.slotTag, { backgroundColor: `${c.base}1F` }]}>
-                  <Txt variant="tiny" color={c.base}>
-                    {course.slotKey}
-                  </Txt>
-                </View>
-              ) : (
-                <View style={[styles.slotTag, { backgroundColor: colors.surfaceHi }]}>
-                  <Txt variant="tiny" color={colors.textFaint}>
-                    NO SLOT
-                  </Txt>
-                </View>
-              )}
-              {course.archived ? (
-                <Txt variant="tiny" color={colors.textFaint}>
-                  ARCHIVED
-                </Txt>
-              ) : null}
             </View>
-
-            <Txt variant="h3" numberOfLines={2} style={{ marginTop: 4 }}>
-              {course.name}
-            </Txt>
-
-            {course.room || course.faculty ? (
-              <Txt variant="small" color={colors.textDim} numberOfLines={1} style={{ marginTop: 3 }}>
-                {[course.room, course.faculty].filter(Boolean).join(' · ')}
-              </Txt>
-            ) : null}
-          </View>
-
-          <View style={{ alignItems: 'flex-end' }}>
-            <Txt variant="h1" color={health} style={{ fontSize: 26 }}>
-              {stats.percent == null ? '—' : `${Math.round(stats.percent)}`}
-            </Txt>
-            <Txt variant="tiny" color={colors.textFaint}>
-              {stats.percent == null ? 'NO DATA' : 'PERCENT'}
-            </Txt>
-          </View>
+          ) : null}
         </View>
 
-        <View style={{ marginTop: space.md }}>
-          <Bar percent={stats.percent} color={health} />
+        {people ? (
+          <Txt variant="small" color={colors.textDim} numberOfLines={1} style={{ marginTop: 5 }}>
+            {people}
+          </Txt>
+        ) : null}
+
+        {/* The number belongs to the bar, so it sits on the bar's line at the
+            bar's weight rather than shouting from a badge of its own. */}
+        <View style={styles.barRow}>
+          <View style={{ flex: 1 }}>
+            <Bar percent={stats.percent} color={health} marker={stats.threshold} />
+          </View>
+          <View style={styles.pct}>
+            {stats.percent == null ? (
+              <Txt color={colors.textFaint} style={styles.pctNum}>
+                —
+              </Txt>
+            ) : (
+              <>
+                <Txt color={health} style={styles.pctNum}>
+                  {Math.round(stats.percent)}
+                </Txt>
+                <Txt color={health} style={styles.pctSign}>
+                  %
+                </Txt>
+              </>
+            )}
+          </View>
         </View>
 
         <View style={styles.rowBottom}>
-          <Txt variant="small" color={colors.textDim} numberOfLines={1} style={{ flexShrink: 0 }}>
-            {stats.present}/{stats.held} attended
-            {stats.cancelled > 0 ? ` · ${stats.cancelled} cancelled` : ''}
+          <Txt variant="small" color={colors.textDim} numberOfLines={1}>
+            {stats.held === 0 ? 'No classes recorded' : `${stats.present} of ${stats.held} attended`}
+            {stats.cancelled > 0 ? ` · ${stats.cancelled} off` : ''}
           </Txt>
           <Txt
             variant="small"
-            color={health}
-            numberOfLines={2}
-            style={{ flexShrink: 1, textAlign: 'right' }}
+            color={stats.held === 0 ? colors.textFaint : health}
+            numberOfLines={1}
+            style={{ flexShrink: 1, marginLeft: space.md }}
           >
             {verdict}
           </Txt>
@@ -211,40 +246,65 @@ function CourseRow({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space.lg,
-    marginBottom: space.lg,
-  },
-  addBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  row: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    padding: space.lg,
-    paddingLeft: space.lg + 4,
-    marginBottom: space.md,
-    overflow: 'hidden',
-  },
-  rowRail: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
-  rowTop: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
-  rowCodeLine: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  slotTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 },
-  rowBottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: space.sm,
-    gap: space.sm,
-  },
-});
+const makeStyles = ({ colors }: Theme) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: space.lg,
+      marginBottom: space.lg,
+      gap: space.md,
+    },
+    addBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    // A "+" glyph sits optically high in most fonts; nudge it back onto centre.
+    addGlyph: { fontSize: 26, fontWeight: '400', lineHeight: 30, marginTop: -2 },
+    filterWrap: { paddingHorizontal: space.lg, marginBottom: space.lg },
+
+    row: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: space.lg,
+      paddingLeft: space.lg + 5,
+      marginBottom: space.md,
+      overflow: 'hidden',
+    },
+    rowRail: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
+    metaLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 7 },
+    archiveTag: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 5,
+      backgroundColor: colors.surfaceHi,
+      marginLeft: 2,
+    },
+
+    barRow: { flexDirection: 'row', alignItems: 'center', marginTop: space.lg },
+    // Fixed width so every bar in the list ends at the same x, however many
+    // digits the percentage has.
+    pct: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      justifyContent: 'flex-end',
+      width: 46,
+      marginLeft: space.md,
+    },
+    pctNum: { fontSize: 15, fontWeight: '800', letterSpacing: -0.3 },
+    pctSign: { fontSize: 10, fontWeight: '700', marginLeft: 1 },
+
+    rowBottom: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: space.md,
+    },
+  });

@@ -13,10 +13,14 @@ import {
 import { Button, Card, SectionHeader, Squish, Txt } from '../../src/components/ui';
 import { toMinutes } from '../../src/lib/schedule';
 import { useStore } from '../../src/store';
-import { colors, paletteAt, space } from '../../src/theme';
+import { space, type Theme } from '../../src/theme';
+import { useColors, useTheme, useThemedStyles } from '../../src/theme-context';
 import type { DayIndex } from '../../src/types';
 
 export default function SlotEditorScreen() {
+  const colors = useColors();
+  const { paletteAt } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -38,7 +42,7 @@ export default function SlotEditorScreen() {
     );
   }
 
-  const c = paletteAt(slot.colorIndex);
+  const entry = paletteAt(slot.colorIndex);
   const usedBy = courses.filter((co) => co.slotKey === slot.key);
 
   const sorted = [...slot.meetings].sort(
@@ -74,7 +78,7 @@ export default function SlotEditorScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <View style={[styles.hero, { paddingTop: insets.top + space.md }]}>
-        <View style={[styles.heroGlow, { backgroundColor: c.glow }]} />
+        <View style={[styles.heroGlow, { backgroundColor: entry.glow }]} />
         <View style={styles.heroNav}>
           <Squish onPress={() => router.back()} style={styles.iconBtn} scaleTo={0.9}>
             <Txt variant="h3" color={colors.textDim}>
@@ -83,7 +87,7 @@ export default function SlotEditorScreen() {
           </Squish>
         </View>
         <View style={{ paddingHorizontal: space.lg, marginTop: space.lg }}>
-          <Txt variant="tiny" color={c.base}>
+          <Txt variant="tiny" color={entry.base}>
             SLOT {slot.key}
           </Txt>
           <Txt variant="h1" style={{ marginTop: 6 }}>
@@ -218,7 +222,8 @@ export default function SlotEditorScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) =>
+  StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   hero: {
     backgroundColor: colors.bgElevated,

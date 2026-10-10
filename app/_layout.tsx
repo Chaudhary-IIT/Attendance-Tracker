@@ -7,11 +7,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Loader } from '../src/components/ui';
 import { ensureAndroidChannel } from '../src/lib/notifications';
 import { useStore } from '../src/store';
-import { colors } from '../src/theme';
+import { ThemeProvider, useTheme } from '../src/theme-context';
 
 export default function RootLayout() {
   const hydrate = useStore((s) => s.hydrate);
-  const hydrated = useStore((s) => s.hydrated);
 
   React.useEffect(() => {
     hydrate();
@@ -20,10 +19,23 @@ export default function RootLayout() {
     });
   }, [hydrate]);
 
+  // ThemeProvider reads the persisted preference out of the store, so it has to
+  // sit inside the tree but outside anything that paints.
+  return (
+    <ThemeProvider>
+      <Root />
+    </ThemeProvider>
+  );
+}
+
+function Root() {
+  const hydrated = useStore((s) => s.hydrated);
+  const { colors, scheme } = useTheme();
+
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaProvider>
-        <StatusBar style="light" />
+        <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
         {!hydrated ? (
           <View style={{ flex: 1, backgroundColor: colors.bg }}>
             <Loader />
@@ -43,6 +55,7 @@ export default function RootLayout() {
             />
             <Stack.Screen name="add-course" options={{ animation: 'slide_from_bottom' }} />
             <Stack.Screen name="slots" />
+            <Stack.Screen name="rooms" />
             <Stack.Screen name="backfill" options={{ animation: 'slide_from_bottom' }} />
             <Stack.Screen name="one-off" options={{ animation: 'slide_from_bottom' }} />
             <Stack.Screen name="slot/[id]" />

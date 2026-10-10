@@ -25,10 +25,14 @@ import {
   statsFor,
 } from '../../src/lib/schedule';
 import { uid, useStore } from '../../src/store';
-import { colors, healthColor, paletteAt, radius, space } from '../../src/theme';
+import { healthColor, radius, space, type Theme } from '../../src/theme';
+import { useColors, useTheme, useThemedStyles } from '../../src/theme-context';
 import type { DayIndex, Meeting } from '../../src/types';
 
 export default function CourseScreen() {
+  const colors = useColors();
+  const { paletteAt } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { id, created } = useLocalSearchParams<{ id: string; created?: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -53,9 +57,9 @@ export default function CourseScreen() {
     );
   }
 
-  const c = paletteAt(course.colorIndex);
+  const entry = paletteAt(course.colorIndex);
   const stats = statsFor(course, marks, settings);
-  const health = healthColor(stats.percent, stats.threshold);
+  const health = healthColor(stats.percent, stats.threshold, colors);
   const slot = findSlot(course, slots);
   const meetings = courseMeetings(course, slots);
   const inherited = inheritedMeetings(course, slots);
@@ -107,7 +111,7 @@ export default function CourseScreen() {
     >
       {/* ---------------------------------------------------------- header -- */}
       <View style={[styles.hero, { paddingTop: insets.top + space.md }]}>
-        <View style={[styles.heroGlow, { backgroundColor: c.glow }]} />
+        <View style={[styles.heroGlow, { backgroundColor: entry.glow }]} />
 
         <View style={styles.heroNav}>
           <Squish onPress={() => router.back()} style={styles.iconBtn} scaleTo={0.9}>
@@ -121,14 +125,14 @@ export default function CourseScreen() {
             haptic="medium"
             style={[styles.editBtn, editing && { backgroundColor: colors.accent }]}
           >
-            <Txt variant="small" color={editing ? colors.bg : colors.accent}>
+            <Txt variant="small" color={editing ? colors.onAccent : colors.accent}>
               {editing ? 'Done' : 'Edit'}
             </Txt>
           </Squish>
         </View>
 
         <View style={styles.heroBody}>
-          <Txt variant="tiny" color={c.base}>
+          <Txt variant="tiny" color={entry.base}>
             {course.code}
             {slot ? ` · ${slot.name}` : ''}
           </Txt>
@@ -193,8 +197,8 @@ export default function CourseScreen() {
                 key={mt.id}
                 style={[styles.meetingRow, i === meetings.length - 1 && { borderBottomWidth: 0 }]}
               >
-                <View style={[styles.dayChip, { backgroundColor: `${c.base}1F` }]}>
-                  <Txt variant="tiny" color={c.base}>
+                <View style={[styles.dayChip, { backgroundColor: `${entry.base}1F` }]}>
+                  <Txt variant="tiny" color={entry.base}>
                     {DAY_SHORT[mt.day].toUpperCase()}
                   </Txt>
                 </View>
@@ -285,7 +289,7 @@ export default function CourseScreen() {
                 onPress={() => patch({ slotKey: null })}
                 style={[styles.slotChip, course.slotKey == null && styles.slotChipActive]}
               >
-                <Txt variant="tiny" color={course.slotKey == null ? colors.bg : colors.textDim}>
+                <Txt variant="tiny" color={course.slotKey == null ? colors.onAccent : colors.textDim}>
                   NONE
                 </Txt>
               </Squish>
@@ -302,7 +306,7 @@ export default function CourseScreen() {
                       active && { backgroundColor: sc.base, borderColor: sc.base },
                     ]}
                   >
-                    <Txt variant="tiny" color={active ? colors.bg : colors.textDim}>
+                    <Txt variant="tiny" color={active ? colors.onAccent : colors.textDim}>
                       {s.key}
                     </Txt>
                   </Squish>
@@ -340,10 +344,10 @@ export default function CourseScreen() {
                         <View
                           style={[
                             styles.dayChip,
-                            { backgroundColor: muted ? colors.surfaceHi : `${c.base}1F` },
+                            { backgroundColor: muted ? colors.surfaceHi : `${entry.base}1F` },
                           ]}
                         >
-                          <Txt variant="tiny" color={muted ? colors.textFaint : c.base}>
+                          <Txt variant="tiny" color={muted ? colors.textFaint : entry.base}>
                             {DAY_SHORT[mt.day].toUpperCase()}
                           </Txt>
                         </View>
@@ -561,6 +565,7 @@ export default function CourseScreen() {
 }
 
 function StatLine({ label, value, color }: { label: string; value: number; color: string }) {
+  const colors = useColors();
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
       <Txt variant="small" color={colors.textFaint}>
@@ -573,7 +578,8 @@ function StatLine({ label, value, color }: { label: string; value: number; color
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) =>
+  StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   hero: {
     backgroundColor: colors.bgElevated,

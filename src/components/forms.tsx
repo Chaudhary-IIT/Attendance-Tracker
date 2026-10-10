@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, Switch, TextInput, View } from 'react-native';
 import { DAY_SHORT, formatTime, fromMinutes, toMinutes } from '../lib/schedule';
-import { colors, paletteAt, radius, space } from '../theme';
+import { radius, space, type Theme } from '../theme';
+import { useColors, useTheme, useThemedStyles } from '../theme-context';
 import type { DayIndex } from '../types';
 import { Squish, Txt } from './ui';
 
@@ -16,6 +17,7 @@ export function Field({
   hint?: string;
   children: React.ReactNode;
 }) {
+  const colors = useColors();
   return (
     <View style={{ marginBottom: space.lg }}>
       <Txt variant="tiny" color={colors.textFaint} style={{ marginBottom: 7 }}>
@@ -46,6 +48,8 @@ export function TextField({
   keyboardType?: 'default' | 'numeric';
   autoCapitalize?: 'none' | 'sentences' | 'characters';
 }) {
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
   return (
     <TextInput
       value={value}
@@ -68,6 +72,8 @@ export function TextField({
  * for quick nudges and normalisation on blur so garbage can't be saved.
  */
 export function TimeField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
   const [draft, setDraft] = React.useState(value);
   React.useEffect(() => setDraft(value), [value]);
 
@@ -125,6 +131,8 @@ export function TimeField({ value, onChange }: { value: string; onChange: (v: st
 /* -------------------------------------------------------------------- day -- */
 
 export function DayPicker({ value, onChange }: { value: DayIndex; onChange: (d: DayIndex) => void }) {
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
   // Monday-first, matching how the academic week is read.
   const order: DayIndex[] = [1, 2, 3, 4, 5, 6, 0];
   return (
@@ -138,7 +146,7 @@ export function DayPicker({ value, onChange }: { value: DayIndex; onChange: (d: 
             onPress={() => onChange(d)}
             style={[styles.dayBtn, active && { backgroundColor: colors.accent }]}
           >
-            <Txt variant="tiny" color={active ? colors.bg : colors.textDim}>
+            <Txt variant="tiny" color={active ? colors.onAccent : colors.textDim}>
               {DAY_SHORT[d].slice(0, 2).toUpperCase()}
             </Txt>
           </Squish>
@@ -151,17 +159,20 @@ export function DayPicker({ value, onChange }: { value: DayIndex; onChange: (d: 
 /* ------------------------------------------------------------------ color -- */
 
 export function ColorPicker({ value, onChange }: { value: number; onChange: (i: number) => void }) {
+  const colors = useColors();
+  const { paletteAt } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.colorRow}>
       {Array.from({ length: 12 }, (_, i) => {
-        const c = paletteAt(i);
+        const entry = paletteAt(i);
         const active = i === value;
         return (
           <Squish key={i} scaleTo={0.85} onPress={() => onChange(i)}>
             <View
               style={[
                 styles.swatch,
-                { backgroundColor: c.base },
+                { backgroundColor: entry.base },
                 active && { borderWidth: 3, borderColor: colors.text },
               ]}
             />
@@ -185,6 +196,8 @@ export function ToggleRow({
   value: boolean;
   onChange: (v: boolean) => void;
 }) {
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.settingRow}>
       <View style={{ flex: 1, paddingRight: space.md }}>
@@ -199,7 +212,8 @@ export function ToggleRow({
         value={value}
         onValueChange={onChange}
         trackColor={{ false: colors.surfaceHi, true: colors.accent }}
-        thumbColor={colors.text}
+        // A themed thumb would go near-black on light, which reads as broken.
+        thumbColor="#FFFFFF"
       />
     </View>
   );
@@ -218,6 +232,8 @@ export function NavRow({
   onPress: () => void;
   danger?: boolean;
 }) {
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Squish scaleTo={0.985} onPress={onPress} style={styles.settingRow}>
       <View style={{ flex: 1, paddingRight: space.md }}>
@@ -258,6 +274,8 @@ export function Stepper({
   step?: number;
   suffix?: string;
 }) {
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
   const clamp = (v: number) => Math.max(min, Math.min(max, v));
   return (
     <View style={styles.timeRow}>
@@ -281,61 +299,62 @@ export function Stepper({
   );
 }
 
-const styles = StyleSheet.create({
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: space.lg,
-    paddingVertical: 13,
-    color: colors.text,
-    fontSize: 15,
-  },
-  timeRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  stepper: {
-    width: 44,
-    height: 46,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceHi,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  timeBox: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  timeInput: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-    paddingVertical: 2,
-    minWidth: 80,
-  },
-  dayRow: { flexDirection: 'row', gap: 6 },
-  dayBtn: {
-    flex: 1,
-    paddingVertical: 11,
-    borderRadius: radius.sm,
-    backgroundColor: colors.surfaceHi,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  swatch: { width: 34, height: 34, borderRadius: 17 },
-  settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: space.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-});
+const makeStyles = ({ colors }: Theme) =>
+  StyleSheet.create({
+    input: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      paddingHorizontal: space.lg,
+      paddingVertical: 13,
+      color: colors.text,
+      fontSize: 15,
+    },
+    timeRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+    stepper: {
+      width: 44,
+      height: 46,
+      borderRadius: radius.md,
+      backgroundColor: colors.surfaceHi,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    timeBox: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      paddingVertical: 6,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    timeInput: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '700',
+      textAlign: 'center',
+      paddingVertical: 2,
+      minWidth: 80,
+    },
+    dayRow: { flexDirection: 'row', gap: 6 },
+    dayBtn: {
+      flex: 1,
+      paddingVertical: 11,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surfaceHi,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+    swatch: { width: 34, height: 34, borderRadius: 17 },
+    settingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 15,
+      paddingHorizontal: space.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+  });

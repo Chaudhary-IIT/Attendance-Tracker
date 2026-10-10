@@ -110,6 +110,8 @@ export type Settings = {
   /** "YYYY-MM-DD" dates with no classes at all. */
   holidays: string[];
   hapticsEnabled: boolean;
+  /** 'system' follows the OS light/dark switch. */
+  themePref: 'system' | 'light' | 'dark';
 };
 
 /** A concrete occurrence of a class on a specific calendar date. */

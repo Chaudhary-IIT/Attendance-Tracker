@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ClassCard } from '../../src/components/ClassCard';
@@ -17,18 +17,30 @@ import {
   formatTime,
   toMinutes,
 } from '../../src/lib/schedule';
-import { useScheduleInput, useStore } from '../../src/store';
-import { colors, paletteAt, radius, space } from '../../src/theme';
+import { useScheduleInput } from '../../src/store';
+import { radius, space, type Theme } from '../../src/theme';
+import { useColors, useTheme, useThemedStyles } from '../../src/theme-context';
 import type { Course } from '../../src/types';
 
 type TimetableView = 'grid' | 'day';
 
+/**
+ * Grid geometry. Every one of these is used by both the pinned time column and
+ * the scrolling day columns, so the two stay in lockstep — hard-coding a height
+ * in only one of them is what makes a timetable look crooked.
+ */
 const COL_WIDTH = 132;
+const COL_GAP = 4;
 const TIME_COL = 62;
+const HEAD_H = 30;
+const ROW_H = 74;
+const ROW_GAP = 6;
 
 export default function TimetableScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
   const now = useNow(30000);
   const input = useScheduleInput();
   const { courses, slots, marks, settings } = input;
@@ -143,6 +155,19 @@ export default function TimetableScreen() {
 
 /* ------------------------------------------------------------- grid view -- */
 
+/**
+ * Which column to reveal on open. Prefers today; if today has no classes it
+ * lands on the next teaching day of the week rather than snapping back to
+ * Monday, which is what you actually want to see on a free Sunday.
+ */
+function todayColumn(days: number[], today: number): number {
+  const exact = days.indexOf(today);
+  if (exact >= 0) return exact;
+  const order = (d: number) => (d === 0 ? 7 : d);
+  const next = days.findIndex((d) => order(d) > order(today));
+  return next >= 0 ? next : 0;
+}
+
 function GridView({
   periods,
   days,
@@ -154,6 +179,28 @@ function GridView({
   grid: Map<string, { course: Course; label?: string; room: string }[]>;
   today: number;
 }) {
+  const colors = useColors();
+  const { paletteAt } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+
+  // Two horizontal scrollers kept in sync: the day header is pinned above the
+  // vertical scroll, so it has to be dragged along by the body rather than
+  // scrolled by the user.
+  const headRef = React.useRef<ScrollView>(null);
+  const bodyRef = React.useRef<ScrollView>(null);
+
+  const dayKey = days.join(',');
+  React.useEffect(() => {
+    const idx = todayColumn(days, today);
+    if (idx <= 0) return;
+    // Leave a sliver of the previous column visible so it still reads as a
+    // scrollable week rather than as if the earlier days do not exist.
+    const x = Math.max(0, idx * (COL_WIDTH + COL_GAP) - 26);
+    // The scroll view has to have laid out before it can be told where to go.
+    const timer = setTimeout(() => bodyRef.current?.scrollTo({ x, animated: true }), 260);
+    return () => clearTimeout(timer);
+  }, [dayKey, today]);
+
   if (periods.length === 0) {
     return (
       <EmptyState
@@ -165,88 +212,118 @@ function GridView({
   }
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xxl }}
-    >
-      <View>
-        {/* Day header */}
-        <View style={styles.gridHeaderRow}>
-          <View style={{ width: TIME_COL }} />
+    <View style={{ flex: 1 }}>
+      {/* Pinned day header. */}
+      <View style={styles.gridHeaderRow}>
+        <View style={{ width: TIME_COL }} />
+        <ScrollView
+          ref={headRef}
+          horizontal
+          scrollEnabled={false}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingRight: space.lg }}
+        >
           {days.map((d) => (
-            <View
-              key={d}
-              style={[styles.gridHeaderCell, d === today && styles.gridHeaderCellToday]}
-            >
+            <View key={d} style={[styles.gridHeaderCell, d === today && styles.gridHeaderCellToday]}>
               <Txt variant="tiny" color={d === today ? colors.accent : colors.textDim}>
                 {DAY_SHORT[d].toUpperCase()}
               </Txt>
             </View>
           ))}
-        </View>
-
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 90 }}>
-          {periods.map((p, idx) => (
-            <Animated.View
-              key={`${p.start}-${p.end}`}
-              entering={FadeInDown.duration(260).delay(idx * 35)}
-              style={styles.gridRow}
-            >
-              <View style={styles.timeCell}>
-                <Txt variant="small" color={colors.textDim}>
-                  {formatTime(p.start).replace(' AM', '').replace(' PM', '')}
-                </Txt>
-                <Txt variant="tiny" color={colors.textFaint}>
-                  {toMinutes(p.start) >= 720 ? 'PM' : 'AM'}
-                </Txt>
-              </View>
-
-              {days.map((d) => {
-                const items = grid.get(`${d}|${p.start}-${p.end}`) ?? [];
-                return (
-                  <View key={d} style={styles.gridCell}>
-                    {items.length === 0 ? (
-                      <View style={styles.emptyCell} />
-                    ) : (
-                      items.map((it) => {
-                        const c = paletteAt(it.course.colorIndex);
-                        return (
-                          <View
-                            key={`${it.course.id}-${it.label ?? ''}`}
-                            style={[
-                              styles.classChip,
-                              { backgroundColor: c.tint, borderLeftColor: c.base },
-                            ]}
-                          >
-                            <Txt variant="tiny" color={c.base} numberOfLines={1}>
-                              {it.course.code.replace(/_(NEW|New|new)$/, '')}
-                            </Txt>
-                            <Txt
-                              variant="small"
-                              color={colors.text}
-                              numberOfLines={2}
-                              style={{ marginTop: 2, fontSize: 11, lineHeight: 14 }}
-                            >
-                              {it.course.name}
-                            </Txt>
-                            {it.room ? (
-                              <Txt variant="tiny" color={colors.textFaint} numberOfLines={1} style={{ marginTop: 2 }}>
-                                {it.room}
-                              </Txt>
-                            ) : null}
-                          </View>
-                        );
-                      })
-                    )}
-                  </View>
-                );
-              })}
-            </Animated.View>
-          ))}
         </ScrollView>
       </View>
-    </ScrollView>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 110 }}
+      >
+        <Animated.View entering={FadeIn.duration(240)} style={styles.gridBody}>
+          {/* Pinned time column — stays put while the week scrolls sideways. */}
+          <View style={{ width: TIME_COL }}>
+            {periods.map((p) => (
+              <View key={`${p.start}-${p.end}`} style={styles.timeCell}>
+                <Txt variant="small" color={colors.textDim}>
+                  {formatTime(p.start).replace(/ [AP]M$/, '')}
+                </Txt>
+                <Txt variant="tiny" color={colors.textFaint} style={{ letterSpacing: 0 }}>
+                  {formatTime(p.end)}
+                </Txt>
+              </View>
+            ))}
+          </View>
+
+          <ScrollView
+            ref={bodyRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={(e) =>
+              headRef.current?.scrollTo({ x: e.nativeEvent.contentOffset.x, animated: false })
+            }
+            contentContainerStyle={{ paddingRight: space.lg }}
+          >
+            <View>
+              {periods.map((p) => (
+                <View key={`${p.start}-${p.end}`} style={styles.gridRow}>
+                  {days.map((d) => {
+                    const items = grid.get(`${d}|${p.start}-${p.end}`) ?? [];
+                    // Two classes share one cell's height, so the chips have to
+                    // drop to code-only or the text is clipped mid-word.
+                    const dense = items.length > 1;
+
+                    return (
+                      <View key={d} style={[styles.gridCell, d === today && styles.gridCellToday]}>
+                        {items.length === 0 ? (
+                          <View style={styles.emptyCell} />
+                        ) : (
+                          items.map((it) => {
+                            const entry = paletteAt(it.course.colorIndex);
+                            return (
+                              <View
+                                key={`${it.course.id}-${it.label ?? ''}`}
+                                style={[
+                                  styles.classChip,
+                                  { backgroundColor: entry.tint, borderLeftColor: entry.base },
+                                ]}
+                              >
+                                <Txt variant="tiny" color={entry.base} numberOfLines={1}>
+                                  {it.course.code.replace(/_(NEW|New|new)$/, '')}
+                                </Txt>
+                                {dense ? null : (
+                                  <>
+                                    <Txt
+                                      color={colors.text}
+                                      numberOfLines={2}
+                                      style={styles.chipName}
+                                    >
+                                      {it.course.name}
+                                    </Txt>
+                                    {it.room ? (
+                                      <Txt
+                                        color={colors.textFaint}
+                                        numberOfLines={1}
+                                        style={styles.chipRoom}
+                                      >
+                                        {it.room}
+                                      </Txt>
+                                    ) : null}
+                                  </>
+                                )}
+                              </View>
+                            );
+                          })
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </Animated.View>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -266,6 +343,8 @@ function DayView({
   now: Date;
 }) {
   const router = useRouter();
+  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
   const isToday = date.toDateString() === now.toDateString();
 
   return (
@@ -329,64 +408,94 @@ function DayView({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space.lg,
-    marginBottom: space.lg,
-    gap: space.md,
-  },
-  exportBtn: {
-    backgroundColor: colors.accentSoft,
-    paddingHorizontal: space.lg,
-    paddingVertical: 9,
-    borderRadius: radius.pill,
-  },
-  gridHeaderRow: { flexDirection: 'row', marginBottom: space.sm },
-  gridHeaderCell: {
-    width: COL_WIDTH,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: radius.sm,
-    marginHorizontal: 2,
-  },
-  gridHeaderCellToday: { backgroundColor: colors.accentSoft },
-  gridRow: { flexDirection: 'row', marginBottom: 6 },
-  timeCell: { width: TIME_COL, paddingTop: 10, paddingRight: space.sm, alignItems: 'flex-end' },
-  gridCell: { width: COL_WIDTH, marginHorizontal: 2 },
-  emptyCell: {
-    height: 58,
-    borderRadius: radius.sm,
-    backgroundColor: 'rgba(255,255,255,0.018)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.03)',
-  },
-  classChip: {
-    minHeight: 58,
-    borderRadius: radius.sm,
-    borderLeftWidth: 3,
-    padding: 8,
-    marginBottom: 4,
-    justifyContent: 'center',
-  },
-  dayNav: { flexDirection: 'row', alignItems: 'center', padding: space.md },
-  navBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surfaceHi,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addExtra: {
-    paddingVertical: 13,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    marginTop: space.sm,
-  },
-});
+const makeStyles = ({ colors }: Theme) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: space.lg,
+      marginBottom: space.lg,
+      gap: space.md,
+    },
+    exportBtn: {
+      backgroundColor: colors.accentSoft,
+      paddingHorizontal: space.lg,
+      paddingVertical: 9,
+      borderRadius: radius.pill,
+    },
+    gridHeaderRow: {
+      flexDirection: 'row',
+      marginBottom: space.sm,
+      paddingLeft: space.lg,
+    },
+    gridHeaderCell: {
+      width: COL_WIDTH,
+      height: HEAD_H,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: radius.sm,
+      marginHorizontal: COL_GAP / 2,
+    },
+    gridHeaderCellToday: { backgroundColor: colors.accentSoft },
+
+    gridBody: { flexDirection: 'row', paddingLeft: space.lg },
+    // Fixed height on the row is what makes every cell in it identical; the time
+    // column mirrors it exactly so the two never drift apart.
+    gridRow: { flexDirection: 'row', height: ROW_H, marginBottom: ROW_GAP },
+    timeCell: {
+      width: TIME_COL,
+      height: ROW_H,
+      marginBottom: ROW_GAP,
+      paddingRight: space.sm,
+      alignItems: 'flex-end',
+      justifyContent: 'center',
+    },
+    gridCell: {
+      width: COL_WIDTH,
+      height: ROW_H,
+      marginHorizontal: COL_GAP / 2,
+      borderRadius: radius.sm,
+      gap: 3,
+    },
+    gridCellToday: { backgroundColor: colors.todayTint },
+    // `flex: 1` on both states is the whole trick: one chip fills the row, two
+    // split it evenly, and an empty cell matches either — no fixed heights that
+    // disagree with each other.
+    emptyCell: {
+      flex: 1,
+      borderRadius: radius.sm,
+      backgroundColor: colors.cellEmpty,
+      borderWidth: 1,
+      borderColor: colors.cellEmptyBorder,
+    },
+    classChip: {
+      flex: 1,
+      borderRadius: radius.sm,
+      borderLeftWidth: 3,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    chipName: { fontSize: 11, fontWeight: '600', lineHeight: 13, marginTop: 2 },
+    chipRoom: { fontSize: 10, fontWeight: '700', lineHeight: 12, marginTop: 2 },
+    dayNav: { flexDirection: 'row', alignItems: 'center', padding: space.md },
+    navBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.surfaceHi,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    addExtra: {
+      paddingVertical: 13,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderStyle: 'dashed',
+      alignItems: 'center',
+      marginTop: space.sm,
+    },
+  });

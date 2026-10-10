@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Squish, Txt } from '../src/components/ui';
 import { CATALOG } from '../src/data/catalog';
 import { useStore } from '../src/store';
-import { colors, paletteAt, radius, space } from '../src/theme';
+import { radius, space, type Theme } from '../src/theme';
+import { useColors, useTheme, useThemedStyles } from '../src/theme-context';
 import type { CatalogCourse } from '../src/types-catalog';
 
 /** Normalises a search term: case- and separator-insensitive. */
@@ -15,6 +16,9 @@ function norm(s: string) {
 }
 
 export default function AddCourseScreen() {
+  const colors = useColors();
+  const { paletteAt } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -132,7 +136,7 @@ export default function AddCourseScreen() {
                 onPress={() => setSlotFilter(item.value)}
                 style={[styles.chip, active && { backgroundColor: colors.text }]}
               >
-                <Txt variant="tiny" color={active ? colors.bg : colors.textDim}>
+                <Txt variant="tiny" color={active ? colors.onAccent : colors.textDim}>
                   {item.label === 'NONE' ? 'NO SLOT' : item.label}
                 </Txt>
               </Squish>
@@ -159,7 +163,7 @@ export default function AddCourseScreen() {
         }
         renderItem={({ item, index }) => {
           const taken = takenCodes.has(item.code);
-          const c = paletteAt(index);
+          const entry = paletteAt(index);
           return (
             <Animated.View entering={FadeIn.duration(160)}>
               <Squish
@@ -169,11 +173,11 @@ export default function AddCourseScreen() {
                 style={[styles.item, taken && { opacity: 0.4 }]}
               >
                 <View style={styles.itemTop}>
-                  <Txt variant="tiny" color={c.base}>
+                  <Txt variant="tiny" color={entry.base}>
                     {item.code}
                   </Txt>
-                  <View style={[styles.slotBadge, { backgroundColor: `${c.base}1F` }]}>
-                    <Txt variant="tiny" color={c.base}>
+                  <View style={[styles.slotBadge, { backgroundColor: `${entry.base}1F` }]}>
+                    <Txt variant="tiny" color={entry.base}>
                       {item.slotKey === 'NONE' ? 'NO SLOT' : item.slotKey}
                     </Txt>
                   </View>
@@ -209,7 +213,8 @@ export default function AddCourseScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) =>
+  StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',

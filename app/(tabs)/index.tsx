@@ -19,9 +19,13 @@ import {
 } from '../../src/lib/schedule';
 import { pingBeforeClass, rescheduleReminders } from '../../src/lib/notifications';
 import { useScheduleInput, useStore } from '../../src/store';
-import { colors, healthColor, paletteAt, radius, shadow, space } from '../../src/theme';
+import { healthColor, radius, space, type Theme } from '../../src/theme';
+import { useColors, useTheme, useThemedStyles } from '../../src/theme-context';
 
 export default function TodayScreen() {
+  const colors = useColors();
+  const { paletteAt, shadow } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const now = useNow(1000);
@@ -67,7 +71,7 @@ export default function TodayScreen() {
 
   const heroTarget = live ?? upcoming;
   const heroColor = heroTarget ? paletteAt(heroTarget.course.colorIndex) : null;
-  const overallColor = healthColor(overall.percent, settings.minAttendance);
+  const overallColor = healthColor(overall.percent, settings.minAttendance, colors);
 
   if (activeCourses.length === 0) {
     return (
@@ -284,6 +288,9 @@ export default function TodayScreen() {
 }
 
 function SummaryRow({ label, value, color }: { label: string; value: string; color: string }) {
+  const colors = useColors();
+  const { paletteAt, shadow } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.summaryRow}>
       <Txt variant="small" color={colors.textFaint}>
@@ -296,7 +303,8 @@ function SummaryRow({ label, value, color }: { label: string; value: string; col
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) =>
+  StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: space.lg },
   header: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: space.xl },
   streak: {

@@ -6,7 +6,8 @@ import { Field, TextField, TimeField } from '../src/components/forms';
 import { Button, Card, SectionHeader, Squish, Txt } from '../src/components/ui';
 import { DAY_NAMES, addDays, dateKey, parseDateKey } from '../src/lib/schedule';
 import { useStore } from '../src/store';
-import { colors, paletteAt, radius, space } from '../src/theme';
+import { radius, space, type Theme } from '../src/theme';
+import { useColors, useTheme, useThemedStyles } from '../src/theme-context';
 
 /**
  * Create or edit a class that happens exactly once — a make-up lecture, an
@@ -17,6 +18,9 @@ import { colors, paletteAt, radius, space } from '../src/theme';
  * existing one-off; `course` preselects the course.
  */
 export default function OneOffScreen() {
+  const colors = useColors();
+  const { paletteAt } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const params = useLocalSearchParams<{ date?: string; edit?: string; course?: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -114,21 +118,21 @@ export default function OneOffScreen() {
 
       <SectionHeader title="Course" />
       <View style={styles.courseGrid}>
-        {active.map((c) => {
-          const col = paletteAt(c.colorIndex);
-          const on = c.id === courseId;
+        {active.map((course) => {
+          const col = paletteAt(course.colorIndex);
+          const on = course.id === courseId;
           return (
             <Squish
-              key={c.id}
+              key={course.id}
               scaleTo={0.94}
-              onPress={() => setCourseId(c.id)}
+              onPress={() => setCourseId(course.id)}
               style={[
                 styles.courseChip,
                 on ? { backgroundColor: col.base, borderColor: col.base } : null,
               ]}
             >
-              <Txt variant="tiny" color={on ? colors.bg : colors.textDim}>
-                {c.code}
+              <Txt variant="tiny" color={on ? colors.onAccent : colors.textDim}>
+                {course.code}
               </Txt>
             </Squish>
           );
@@ -225,7 +229,8 @@ export default function OneOffScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors }: Theme) =>
+  StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   iconBtn: {
